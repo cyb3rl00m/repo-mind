@@ -55,6 +55,67 @@ writeFileSync(
   JSON.stringify({ name: 'com.repomind.engine', description: 'RepoMind Local Engine (e2e)', path: launcher, type: 'stdio', allowed_origins: [`chrome-extension://${EXPECTED_ID}/`] }, null, 2)
 );
 
+
+/** Minimal in-memory GitHub REST API, served through request interception (no network). */
+function createFakeGitHub(owner, repo) {
+  const commits = new Map();
+  const branches = new Map();
+  let n = 0;
+  const sha = () => (++n).toString(16).padStart(40, 'e');
+  const base = `/repos/${owner}/${repo}`;
+  const json = (status, body) => ({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(body) });
+  const handle = (method, path, body) => {
+    const empty = branches.size === 0;
+    if (method === 'GET' && path === '/user') return json(200, { login: 'e2e-user' });
+    if (method === 'GET' && path === base) return json(200, { full_name: `${owner}/${repo}`, default_branch: 'main', private: false, description: null, size: empty ? 0 : 1, html_url: `https://github.com/${owner}/${repo}`, pushed_at: null });
+    if (method === 'GET' && path.startsWith(`${base}/branches`)) return json(200, [...branches].map(([name, s]) => ({ name, commit: { sha: s }, protected: false })));
+    let m = path.match(new RegExp(`^${base}/commits/(.+)$`));
+    if (method === 'GET' && m) return empty ? json(409, { message: 'Git Repository is empty.' }) : json(200, { sha: branches.get(m[1]) ?? m[1], commit: { message: 'x', committer: { date: null } } });
+    m = path.match(new RegExp(`^${base}/git/ref/heads/(.+)$`));
+    if (method === 'GET' && m) return empty ? json(409, { message: 'Git Repository is empty.' }) : branches.has(decodeURIComponent(m[1])) ? json(200, { object: { sha: branches.get(decodeURIComponent(m[1])) } }) : json(404, { message: 'Not Found' });
+    m = path.match(new RegExp(`^${base}/git/commits/(.+)$`));
+    if (method === 'GET' && m) return json(200, { tree: { sha: `tree-${m[1]}` } });
+    if (method === 'POST' && path === `${base}/git/trees`) {
+      const tree = new Map(commits.get(String(body.base_tree).replace('tree-', ''))?.tree ?? []);
+      for (const e of body.tree) {
+        if (e.sha === null) tree.delete(e.path);
+        else tree.set(e.path, e.content);
+      }
+      const t = `t${sha()}`;
+      commits.set(t, { tree, parents: [] });
+      return json(201, { sha: t });
+    }
+    if (method === 'POST' && path === `${base}/git/commits`) {
+      const c = sha();
+      commits.set(c, { tree: commits.get(body.tree).tree, parents: body.parents, message: body.message });
+      return json(201, { sha: c, html_url: `https://github.com/${owner}/${repo}/commit/${c}` });
+    }
+    m = path.match(new RegExp(`^${base}/git/refs/heads/(.+)$`));
+    if (method === 'PATCH' && m) {
+      const b = decodeURIComponent(m[1]);
+      if (commits.get(body.sha).parents[0] !== branches.get(b)) return json(422, { message: 'Update is not a fast forward' });
+      branches.set(b, body.sha);
+      return json(200, { object: { sha: body.sha } });
+    }
+    m = path.match(new RegExp(`^${base}/contents/(.+)$`));
+    if (method === 'PUT' && m) {
+      const head = branches.get(body.branch);
+      const tree = new Map(head ? commits.get(head).tree : []);
+      tree.set(decodeURIComponent(m[1]), Buffer.from(body.content, 'base64').toString('utf8'));
+      const c = sha();
+      commits.set(c, { tree, parents: head ? [head] : [], message: body.message });
+      branches.set(body.branch, c);
+      return json(201, { commit: { sha: c, html_url: `https://github.com/${owner}/${repo}/commit/${c}` } });
+    }
+    return json(404, { message: `fake: ${method} ${path}` });
+  };
+  return {
+    handle,
+    files: () => (branches.get('main') ? Object.fromEntries(commits.get(branches.get('main')).tree) : {}),
+    commitCount: () => [...commits.keys()].filter((k) => !k.startsWith('t')).length
+  };
+}
+
 const results = [];
 const step = async (name, fn) => {
   const t0 = Date.now();
@@ -234,6 +295,85 @@ try {
     await page.click('button[aria-label="Settings"]');
     await waitText('protocol v1');
     await shot('10-settings');
+  });
+
+
+  // ---------------------------------------------------------------- GitHub Builder (mocked GitHub API)
+  const fake = createFakeGitHub('e2e-owner', 'empty-app');
+  await page.setRequestInterception(true);
+  page.on('request', (req) => {
+    const url = req.url();
+    if (url.startsWith('https://api.github.com/')) {
+      if (req.method() === 'OPTIONS') return req.respond({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' } });
+      const body = req.postData() ? JSON.parse(req.postData()) : undefined;
+      return req.respond(fake.handle(req.method(), url.replace('https://api.github.com', ''), body));
+    }
+    if (url.startsWith('https://github.com/') || url.startsWith('https://codeload.github.com/')) return req.abort();
+    return req.continue();
+  });
+
+  await step('session GitHub token can be added (validated against /user)', async () => {
+    await page.click('button[aria-label="Settings"]');
+    await setInput('input[aria-label="GitHub token"]', 'github_pat_' + 'E'.repeat(60));
+    await clickText('Use for this session');
+    await page.waitForFunction(() => document.body.innerText.toLowerCase().includes('session only'), { timeout: 20000 });
+  });
+
+  await step('an EMPTY GitHub repository imports as a project with zero files', async () => {
+    await page.click('button[aria-label="Repositories"]');
+    await setInput('input[placeholder="https://github.com/owner/repo"]', 'e2e-owner/empty-app');
+    await page.evaluate(() => {
+      const box = [...document.querySelectorAll('label.check')].find((l) => l.textContent.includes('through the local engine'))?.querySelector('input');
+      if (box && box.checked) box.click();
+    });
+    await clickText('Import & index');
+    await page.waitForFunction(() => [...document.querySelectorAll('select.project-select option')].some((o) => o.textContent === 'e2e-owner/empty-app' && o.selected), { timeout: 30000 });
+    await page.click('button[aria-label="GitHub Builder"]');
+    await page.waitForFunction(() => document.body.innerText.toLowerCase().includes('empty repository'), { timeout: 20000 });
+    await shot('11-builder-empty');
+  });
+
+  await step('GitHub Builder: prompt, parse DeepSeek answer, block bad files, publish to the empty repo', async () => {
+    await setInput('textarea', 'Build a tiny Kotlin hello world app');
+    await clickText('Copy GITHUB MODE prompt');
+    const answer = [
+      '## PLAN', '- `README.md` — docs', '- `src/main/kotlin/Main.kt` — entry point', '',
+      '=== FILE: README.md', 'TYPE: markdown', 'ACTION: CREATE', '```markdown', '# Hello', '```', '=== END FILE', '',
+      '=== FILE: src/main/kotlin/Main.kt', 'TYPE: kotlin', 'ACTION: CREATE', '```kotlin', 'fun main() {', '    println("Hello from RepoMind")', '}', '```', '=== END FILE', '',
+      '=== FILE: src/main/kotlin/Broken.kt', 'TYPE: kotlin', 'ACTION: CREATE', '```kotlin', 'fun broken() {}', '// ... rest of the code', '```', '=== END FILE', '',
+      '=== GITHUB MODE STATUS', 'BATCH: 1/2', 'DONE: readme and entry point', 'REMAINING: build.gradle.kts', 'MANUAL STEPS:', '- none', '=== END STATUS'
+    ].join('\n');
+    await setInput('textarea[placeholder^="Paste the complete answer"]', answer);
+    await clickText('Check files');
+    await waitText('elision placeholder');
+    const states = await page.$$eval('input[aria-label^="Publish "]', (els) => els.map((e) => [e.getAttribute('aria-label'), e.checked, e.disabled]));
+    const broken = states.find((x) => x[0].includes('Broken.kt'));
+    if (!broken || broken[1] || !broken[2]) throw new Error(`placeholder file not blocked: ${JSON.stringify(states)}`);
+    await shot('12-builder-review');
+    await clickText('Publish 2 files');
+    await page.waitForSelector('.modal');
+    await page.evaluate(() => [...document.querySelectorAll('.modal button')].find((b) => b.textContent.trim() === 'Publish to GitHub').click());
+    await waitText('Published to', 30000);
+    const files = fake.files();
+    if (files['README.md'] !== '# Hello\n' || !files['src/main/kotlin/Main.kt']?.includes('Hello from RepoMind') || files['src/main/kotlin/Broken.kt']) throw new Error(`repo: ${JSON.stringify(files)}`);
+    await page.waitForFunction(() => document.body.innerText.includes('build.gradle.kts'), { timeout: 20000 });
+    await shot('13-builder-published');
+  });
+
+  await step('second batch updates an existing file as one fast-forward commit', async () => {
+    await page.waitForFunction(() => !document.querySelector('.busy'), { timeout: 30000 });
+    const before = fake.commitCount();
+    const answer2 = ['=== FILE: README.md', 'ACTION: UPDATE', '```markdown', '# Hello', '', 'Run: `kotlinc src/main/kotlin/Main.kt`', '```', '=== END FILE', '', '=== FILE: build.gradle.kts', 'ACTION: CREATE', '```kotlin', 'plugins { kotlin("jvm") version "2.0.21" }', '```', '=== END FILE', '', '=== GITHUB MODE STATUS', 'BATCH: 2/2', 'DONE: build file', 'REMAINING: NONE', 'MANUAL STEPS:', '- none', '=== END STATUS'].join('\n');
+    await setInput('textarea[placeholder^="Paste the complete answer"]', answer2);
+    await clickText('Check files');
+    await waitText('changes vs. current file');
+    await clickText('Publish 2 files');
+    await page.waitForSelector('.modal');
+    await page.evaluate(() => [...document.querySelectorAll('.modal button')].find((b) => b.textContent.trim() === 'Publish to GitHub').click());
+    await page.waitForFunction(() => [...document.querySelectorAll('.list-item')].filter((x) => x.textContent.includes('files')).length >= 2, { timeout: 30000 });
+    const files = fake.files();
+    if (!files['README.md'].includes('kotlinc') || !files['build.gradle.kts']) throw new Error(`repo: ${JSON.stringify(Object.keys(files))}`);
+    if (fake.commitCount() - before !== 1) throw new Error(`expected 1 commit, got ${fake.commitCount() - before}`);
   });
 
   if (errors.length) throw new Error(`Page errors: ${errors.join(' | ')}`);

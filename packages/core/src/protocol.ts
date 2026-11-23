@@ -7,7 +7,7 @@
  */
 import type { CommandSafety, DetectedCommand } from './commands.js';
 import type { IngestOptions } from './filter.js';
-import type { GitHubBranch, GitHubRepoMeta } from './github.js';
+import type { GitHubBranch, GitHubRepoMeta, PublishFile, PublishResult } from './github.js';
 import type { PatchIssue } from './diff.js';
 import type { SkippedFile, SourceFile } from './types.js';
 
@@ -94,7 +94,8 @@ export interface EngineMethods {
   'secrets.status': { params: Record<string, never>; result: { backend: 'secret-tool' | 'none'; available: boolean; hasGithubToken: boolean; detail: string } };
   'secrets.setGithubToken': { params: { token: string }; result: { stored: boolean; login: string | null; classic: boolean; scopes: string[] | null; warning: string | null } };
   'secrets.deleteGithubToken': { params: Record<string, never>; result: { deleted: boolean } };
-  'github.fetch': { params: { owner: string; repo: string; ref?: string; subPath?: string; useToken: boolean; options?: IngestOptions }; result: { meta: GitHubRepoMeta; branches: GitHubBranch[]; ref: string; commit: { sha: string; message: string; date: string | null }; files: SourceFile[]; skipped: SkippedFile[] } };
+  'github.fetch': { params: { owner: string; repo: string; ref?: string; subPath?: string; useToken: boolean; options?: IngestOptions }; result: { meta: GitHubRepoMeta; branches: GitHubBranch[]; ref: string; commit: { sha: string; message: string; date: string | null }; files: SourceFile[]; skipped: SkippedFile[]; empty: boolean } };
+  'github.publish': { params: { owner: string; repo: string; branch: string; newBranch?: string; message: string; files: PublishFile[]; expectedHead: string | null; approved: boolean }; result: PublishResult };
 }
 
 export type EngineMethod = keyof EngineMethods;

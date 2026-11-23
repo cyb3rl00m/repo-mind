@@ -2,6 +2,16 @@ import { unzipSync } from 'fflate';
 import { decodeText, looksBinary, normalizeRepoPath, dirname } from './lang.js';
 import { PathFilter, type IngestOptions } from './filter.js';
 import type { SkippedFile, SourceFile } from './types.js';
+import { utf8ToBase64 } from './protocol.js';
+import { isSecretFile } from './secrets.js';
+
+export interface TreeEntry {
+  path: string;
+  mode: '100644' | '100755';
+  type: 'blob';
+  content?: string;
+  sha?: null;
+}
 
 export interface GitHubRepoRef {
   owner: string;
@@ -73,7 +83,7 @@ export class GitHubError extends Error {
   }
 }
 
-export type FetchLike = (url: string, init?: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<{
+export type FetchLike = (url: string, init?: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal }) => Promise<{
   ok: boolean;
   status: number;
   headers: { get(name: string): string | null };
@@ -104,14 +114,34 @@ export class GitHubClient {
     return res.json();
   }
 
-  private async error(res: { status: number; headers: { get(n: string): string | null }; json(): Promise<unknown> }): Promise<GitHubError> {
+  private async send(method: 'POST' | 'PATCH' | 'PUT', path: string, body: unknown): Promise<unknown> {
+    const res = await this.fetchImpl(`${this.api}${path}`, { method, headers: { ...this.headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) throw await this.error(res, true);
+    return res.json();
+  }
+
+  private async error(res: { status: number; headers: { get(n: string): string | null }; json(): Promise<unknown> }, write = false): Promise<GitHubError> {
     let msg = `GitHub API error ${res.status}`;
+    let apiMessage = '';
     try {
       const body = (await res.json()) as { message?: string };
-      if (body.message) msg += `: ${body.message}`;
+      if (body.message) {
+        apiMessage = body.message;
+        msg += `: ${body.message}`;
+      }
     } catch {
       /* ignore */
     }
+    if (res.status === 409 && /empty/i.test(apiMessage)) return new GitHubError('The repository is empty (no commits yet).', 409);
+    if (write && (res.status === 403 || res.status === 404) && res.headers.get('x-ratelimit-remaining') !== '0') {
+      return new GitHubError(
+        this.token
+          ? 'GitHub refused the write. The token needs “Contents: Read and write” for this repository (fine-grained) or the “repo” scope (classic).'
+          : 'Publishing needs a GitHub token with “Contents: Read and write” for this repository. Add one in Settings → GitHub access.',
+        res.status
+      );
+    }
+    if (write && res.status === 422) return new GitHubError(`GitHub rejected the change: ${apiMessage || 'validation failed'}. The branch may have moved — refresh and try again.`, 422);
     const remaining = res.headers.get('x-ratelimit-remaining');
     const rateLimited = (res.status === 403 || res.status === 429) && remaining === '0';
     if (rateLimited) {
@@ -155,6 +185,48 @@ export class GitHubClient {
     const buf = new Uint8Array(await res.arrayBuffer());
     if (buf.byteLength > maxBytes) throw new GitHubError('Repository archive exceeds the size limit.', 413);
     return buf;
+  }
+
+  // ---------------------------------------------------------------- write API (used only after explicit user approval)
+
+  async branchHead(owner: string, repo: string, branch: string): Promise<string | null> {
+    try {
+      const j = (await this.get(`/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(branch)}`)) as { object: { sha: string } };
+      return j.object.sha;
+    } catch (e) {
+      if (e instanceof GitHubError && (e.status === 404 || e.status === 409)) return null;
+      throw e;
+    }
+  }
+
+  async commitTree(owner: string, repo: string, sha: string): Promise<string> {
+    const j = (await this.get(`/repos/${owner}/${repo}/git/commits/${sha}`)) as { tree: { sha: string } };
+    return j.tree.sha;
+  }
+
+  async createTree(owner: string, repo: string, baseTree: string | null, entries: TreeEntry[]): Promise<string> {
+    const j = (await this.send('POST', `/repos/${owner}/${repo}/git/trees`, baseTree ? { base_tree: baseTree, tree: entries } : { tree: entries })) as { sha: string };
+    return j.sha;
+  }
+
+  async createCommit(owner: string, repo: string, message: string, tree: string, parents: string[]): Promise<{ sha: string; htmlUrl: string }> {
+    const j = (await this.send('POST', `/repos/${owner}/${repo}/git/commits`, { message, tree, parents })) as { sha: string; html_url: string };
+    return { sha: j.sha, htmlUrl: j.html_url };
+  }
+
+  async updateBranch(owner: string, repo: string, branch: string, sha: string): Promise<void> {
+    await this.send('PATCH', `/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, { sha, force: false });
+  }
+
+  async createBranch(owner: string, repo: string, branch: string, sha: string): Promise<void> {
+    await this.send('POST', `/repos/${owner}/${repo}/git/refs`, { ref: `refs/heads/${branch}`, sha });
+  }
+
+  /** Contents API: the only way to create the first commit in an empty repository. */
+  async putFile(owner: string, repo: string, path: string, content: string, message: string, branch: string): Promise<{ commitSha: string; htmlUrl: string }> {
+    const encoded = path.split('/').map(encodeURIComponent).join('/');
+    const j = (await this.send('PUT', `/repos/${owner}/${repo}/contents/${encoded}`, { message, content: utf8ToBase64(content), branch })) as { commit: { sha: string; html_url: string } };
+    return { commitSha: j.commit.sha, htmlUrl: j.commit.html_url };
   }
 
   /** For classic tokens GitHub reports scopes; fine-grained tokens report none. */
@@ -228,4 +300,162 @@ export function filesFromZip(zip: Uint8Array, opts: IngestOptions & { subPath?: 
     files.push({ path: p, content: decodeText(bytes), size: bytes.byteLength });
   }
   return { files, skipped, rootPrefix };
+}
+
+// ------------------------------------------------------------------ snapshots (handles empty repositories)
+
+export interface RepoSnapshot {
+  meta: GitHubRepoMeta;
+  branches: GitHubBranch[];
+  ref: string;
+  commit: { sha: string; message: string; date: string | null };
+  files: SourceFile[];
+  skipped: SkippedFile[];
+  /** True when the repository has no commits yet. */
+  empty: boolean;
+}
+
+export async function fetchSnapshot(
+  gh: GitHubClient,
+  owner: string,
+  repo: string,
+  ref: string | undefined,
+  opts: IngestOptions & { subPath?: string },
+  progress: (m: string) => void = () => {}
+): Promise<RepoSnapshot> {
+  progress('Fetching repository metadata');
+  const meta = await gh.repo(owner, repo);
+  const branches = await gh.branches(owner, repo).catch(() => []);
+  const useRef = ref || meta.defaultBranch;
+  let commit: RepoSnapshot['commit'];
+  try {
+    commit = await gh.commitSha(owner, repo, useRef);
+  } catch (e) {
+    if (e instanceof GitHubError && e.status === 409) {
+      progress('Repository is empty');
+      return { meta, branches: [], ref: useRef, commit: { sha: '', message: '(empty repository)', date: null }, files: [], skipped: [], empty: true };
+    }
+    throw e;
+  }
+  progress(`Downloading snapshot ${commit.sha.slice(0, 10)}`);
+  const zip = await gh.zipball(owner, repo, commit.sha);
+  progress(`Extracting ${(zip.byteLength / 1e6).toFixed(1)} MB`);
+  const r = filesFromZip(zip, opts);
+  return { meta, branches, ref: useRef, commit, files: r.files, skipped: r.skipped, empty: false };
+}
+
+// ------------------------------------------------------------------ publishing
+
+export interface PublishFile {
+  path: string;
+  /** null deletes the file. */
+  content: string | null;
+}
+
+export interface PublishOptions {
+  owner: string;
+  repo: string;
+  /** Branch to commit to (the repository's current branch in RepoMind). */
+  branch: string;
+  /** Optional: create this new branch from `branch` and commit there instead. */
+  newBranch?: string;
+  message: string;
+  files: PublishFile[];
+  /** Head SHA RepoMind's snapshot is based on; if the branch moved, publishing stops. null = expect empty repo. */
+  expectedHead?: string | null;
+}
+
+export interface PublishResult {
+  branch: string;
+  commitSha: string;
+  htmlUrl: string;
+  commits: number;
+  createdBranch: boolean;
+  wasEmpty: boolean;
+}
+
+export const PUBLISH_LIMITS = { maxFiles: 300, maxFileBytes: 1024 * 1024, maxTotalBytes: 20 * 1024 * 1024 };
+
+const BRANCH_NAME = /^(?!\/|.*(?:\/\/|\.\.|@\{|\\))[A-Za-z0-9._/-]{1,100}(?<![./])$/;
+
+/** Validates a publish request. Returns blocking problems (empty = ok). */
+export function validatePublish(o: Pick<PublishOptions, 'files' | 'message' | 'branch' | 'newBranch'>): string[] {
+  const errors: string[] = [];
+  if (!o.files.length) errors.push('Nothing to publish.');
+  if (o.files.length > PUBLISH_LIMITS.maxFiles) errors.push(`Too many files (${o.files.length} > ${PUBLISH_LIMITS.maxFiles}). Publish in batches.`);
+  if (!o.message.trim()) errors.push('Commit message is empty.');
+  if (!BRANCH_NAME.test(o.branch)) errors.push(`Invalid branch name: ${o.branch}`);
+  if (o.newBranch !== undefined && !BRANCH_NAME.test(o.newBranch)) errors.push(`Invalid new branch name: ${o.newBranch}`);
+  let total = 0;
+  const seen = new Set<string>();
+  for (const f of o.files) {
+    const p = normalizeRepoPath(f.path);
+    if (!p || p !== f.path) errors.push(`Unsafe or non-normalized path: ${f.path}`);
+    else if (/(^|\/)\.git(\/|$)/.test(p)) errors.push(`Refusing to write git internals: ${f.path}`);
+    else if (isSecretFile(p)) errors.push(`Refusing to publish a secret/credential file: ${f.path}`);
+    if (seen.has(f.path)) errors.push(`Duplicate path: ${f.path}`);
+    seen.add(f.path);
+    const size = f.content === null ? 0 : new TextEncoder().encode(f.content).length;
+    if (size > PUBLISH_LIMITS.maxFileBytes) errors.push(`${f.path} is larger than 1 MiB.`);
+    total += size;
+  }
+  if (total > PUBLISH_LIMITS.maxTotalBytes) errors.push('Total size exceeds 20 MiB.');
+  return errors;
+}
+
+function fileMode(path: string): '100644' | '100755' {
+  return /(^|\/)(gradlew|mvnw)$|\.sh$/.test(path) ? '100755' : '100644';
+}
+
+/**
+ * Creates ONE commit containing all files (Git Data API) and moves the branch to it with a
+ * fast-forward-only update. Empty repositories get their first commit through the Contents API
+ * (GitHub does not allow Git Data writes before the first commit), then the rest in a second commit.
+ */
+export async function publishFiles(gh: GitHubClient, o: PublishOptions, progress: (m: string) => void = () => {}): Promise<PublishResult> {
+  const problems = validatePublish(o);
+  if (problems.length) throw new GitHubError(problems.join(' '), 400);
+  const { owner, repo } = o;
+  let head = await gh.branchHead(owner, repo, o.branch);
+  if (o.expectedHead !== undefined && (o.expectedHead || null) !== head) {
+    throw new GitHubError(`Branch ${o.branch} changed on GitHub since RepoMind's snapshot (expected ${o.expectedHead?.slice(0, 10) ?? 'empty'}, found ${head?.slice(0, 10) ?? 'empty'}). Refresh the project, review again, then publish.`, 409);
+  }
+  let files = [...o.files];
+  let commits = 0;
+  let wasEmpty = false;
+  let last = { sha: head ?? '', htmlUrl: '' };
+  let branch = o.branch;
+  let createdBranch = false;
+
+  if (!head) {
+    wasEmpty = true;
+    if (o.newBranch) throw new GitHubError('Cannot create a new branch in an empty repository; publish to the default branch first.', 400);
+    const first = files.find((f) => f.content !== null);
+    if (!first) throw new GitHubError('An empty repository needs at least one file to create.', 400);
+    progress(`Creating first commit with ${first.path}`);
+    const r = await gh.putFile(owner, repo, first.path, first.content!, files.length === 1 ? o.message : `${o.message} (1/2)`, branch);
+    commits++;
+    head = r.commitSha;
+    last = { sha: r.commitSha, htmlUrl: r.htmlUrl };
+    files = files.filter((f) => f !== first && f.content !== null);
+  }
+  if (o.newBranch) {
+    progress(`Creating branch ${o.newBranch}`);
+    await gh.createBranch(owner, repo, o.newBranch, head);
+    branch = o.newBranch;
+    createdBranch = true;
+  }
+  if (files.length) {
+    progress(`Uploading ${files.length} file(s)`);
+    const baseTree = await gh.commitTree(owner, repo, head);
+    const entries: TreeEntry[] = files.map((f) => (f.content === null ? { path: f.path, mode: fileMode(f.path), type: 'blob', sha: null } : { path: f.path, mode: fileMode(f.path), type: 'blob', content: f.content }));
+    const tree = await gh.createTree(owner, repo, baseTree, entries);
+    progress('Creating commit');
+    const c = await gh.createCommit(owner, repo, wasEmpty ? `${o.message} (2/2)` : o.message, tree, [head]);
+    progress(`Updating ${branch}`);
+    await gh.updateBranch(owner, repo, branch, c.sha);
+    commits++;
+    last = c;
+  }
+  return { branch, commitSha: last.sha, htmlUrl: last.htmlUrl, commits, createdBranch, wasEmpty };
 }

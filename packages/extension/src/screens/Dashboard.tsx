@@ -28,6 +28,7 @@ export function Dashboard() {
             <Button variant="primary" icon="context" onClick={() => s.setScreen('context')}>Build context</Button>
             <Button icon="workflow" onClick={() => s.setScreen('workflow')}>Workflow</Button>
             <Button icon="patch" onClick={() => s.setScreen('patch')}>Review a patch</Button>
+            {a.project.source === 'github' && <Button icon="github" onClick={() => s.setScreen('builder')}>GitHub Builder</Button>}
             <Button icon="external" onClick={() => chrome.tabs.create({ url: s.settings.deepseekUrl })}>Open DeepSeek</Button>
           </div>
         </Card>

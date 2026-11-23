@@ -6,7 +6,7 @@ export interface Project {
   id: string;
   name: string;
   source: ProjectSource;
-  github?: { owner: string; repo: string; ref: string; sha: string; private: boolean; viaEngine: boolean; subPath?: string; branches: string[]; commitMessage?: string };
+  github?: { owner: string; repo: string; ref: string; sha: string; private: boolean; viaEngine: boolean; subPath?: string; branches: string[]; commitMessage?: string; empty?: boolean };
   engine?: { projectId: string; root: string; worktreeOf?: string; branch?: string | null; head?: string | null; dirty?: number };
   browser?: { handleKey: string };
   createdAt: string;

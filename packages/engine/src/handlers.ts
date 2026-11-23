@@ -4,7 +4,9 @@ import { join } from 'node:path';
 import {
   GitHubClient,
   PROTOCOL_VERSION,
-  filesFromZip,
+  PUBLISH_LIMITS,
+  fetchSnapshot,
+  publishFiles,
   type EngineMethod,
   type EngineMethods,
   type FetchLike,
@@ -227,7 +229,7 @@ export function createHandlers(registry = new ProjectRegistry(), config: EngineC
       }
       await setGithubToken(token);
       let warning: string | null = null;
-      if (info?.classic) warning = `This is a classic token${info.scopes?.length ? ` with scopes: ${info.scopes.join(', ')}` : ''}. RepoMind only needs read access — a fine-grained token with “Contents: Read-only” and “Metadata: Read-only” on selected repositories is safer.`;
+      if (info?.classic) warning = `This is a classic token${info.scopes?.length ? ` with scopes: ${info.scopes.join(', ')}` : ''}. Classic tokens apply to every repository you can access. A fine-grained token limited to selected repositories (Metadata: Read-only, Contents: Read-only — or Read and write for publishing) is safer.`;
       return { stored: true, login: info?.login ?? null, classic: info?.classic ?? false, scopes: info?.scopes ?? null, warning };
     },
 
@@ -243,17 +245,36 @@ export function createHandlers(registry = new ProjectRegistry(), config: EngineC
         if (!token) throw unavailable('No GitHub token stored in the keyring. Add one in Settings → GitHub.');
       }
       const gh = new GitHubClient(fetchImpl, token);
-      ctx.progress({ message: 'Fetching repository metadata' });
-      const meta = await gh.repo(owner, repo);
-      const branches = await gh.branches(owner, repo).catch(() => []);
-      const ref = optStr(p, 'ref', 255) ?? meta.defaultBranch;
-      const commit = await gh.commitSha(owner, repo, ref);
-      ctx.progress({ message: `Downloading snapshot ${commit.sha.slice(0, 10)}` });
-      const zip = await gh.zipball(owner, repo, commit.sha);
-      ctx.progress({ message: `Extracting ${(zip.byteLength / 1e6).toFixed(1)} MB archive` });
-      const subPath = optStr(p, 'subPath', 1024);
-      const r = filesFromZip(zip, { ...ingestOptions(p['options']), subPath });
-      return { meta, branches, ref, commit, files: r.files, skipped: r.skipped };
+      return fetchSnapshot(gh, owner, repo, optStr(p, 'ref', 255), { ...ingestOptions(p['options']), subPath: optStr(p, 'subPath', 1024) }, (message) => ctx.progress({ message }));
+    },
+
+    'github.publish': async (p, ctx) => {
+      if (!bool(p, 'approved')) throw notApproved('Publishing to GitHub');
+      const owner = str(p, 'owner', { max: 100 });
+      const repo = str(p, 'repo', { max: 100 });
+      if (!/^[A-Za-z0-9-]+$/.test(owner) || !/^[A-Za-z0-9._-]+$/.test(repo)) throw bad('Invalid owner/repo');
+      const rawFiles = p['files'];
+      if (!Array.isArray(rawFiles) || rawFiles.length > PUBLISH_LIMITS.maxFiles) throw bad(`files must be an array (max ${PUBLISH_LIMITS.maxFiles})`);
+      const files = rawFiles.map((f, i) => {
+        const o = obj(f, `files[${i}]`);
+        const content = o['content'];
+        if (content !== null && typeof content !== 'string') throw bad(`files[${i}].content must be a string or null`);
+        return { path: str(o, 'path', { max: 1024 }), content: content as string | null };
+      });
+      const expected = p['expectedHead'];
+      if (expected !== null && typeof expected !== 'string') throw bad('expectedHead must be a string or null');
+      const token = await getGithubToken();
+      if (!token) throw unavailable('No GitHub token in the keyring. Add one with “Contents: Read and write” in Settings → GitHub access.');
+      try {
+        return await publishFiles(
+          new GitHubClient(fetchImpl, token),
+          { owner, repo, branch: str(p, 'branch', { max: 100 }), newBranch: optStr(p, 'newBranch', 100), message: str(p, 'message', { max: 5000 }), files, expectedHead: expected || null },
+          (message) => ctx.progress({ message })
+        );
+      } catch (e) {
+        const status = (e as { status?: number }).status;
+        throw new EngineError(status === 409 || status === 422 ? 'CONFLICT' : status === 400 ? 'BAD_REQUEST' : status === 403 || status === 404 ? 'FORBIDDEN' : 'INTERNAL', (e as Error).message);
+      }
     }
   };
   return { handlers, runner };

@@ -44,7 +44,8 @@ Pure TypeScript, no Node or DOM dependencies (except `TextEncoder`/`atob`), used
 | `memory.ts` | Provenance-tagged, versioned project memory + Markdown export/import |
 | `workflow.ts` | Task model, plan extraction, completion report |
 | `commands.ts` | Build/test command detection, custom command safety |
-| `github.ts` | URL parsing, REST client, zip ingestion |
+| `github.ts` | URL parsing, REST client, zip ingestion, empty-repo snapshots, publishing (Git Data API; Contents API for the first commit of an empty repo; fast-forward only) |
+| `githubMode.ts` | GITHUB MODE prompts (start, continue, fix) and the `=== FILE:` answer parser with validation |
 | `protocol.ts` | Native Messaging protocol types and chunking |
 
 ## Indexing strategy
@@ -115,7 +116,8 @@ Methods (`packages/core/src/protocol.ts` holds the typed definitions):
 | `worktree.create` / `list` / `remove` | Isolated `repomind/<name>` branches under `~/.local/share/repomind/worktrees` |
 | `commands.detect` / `prepare` / `run` / `cancel` | Approval-bound command execution with streamed output |
 | `secrets.status` / `setGithubToken` / `deleteGithubToken` | Keyring via `secret-tool` |
-| `github.fetch` | Private repo snapshot using the keyring token |
+| `github.fetch` | Repo snapshot using the keyring token (empty repositories return `empty: true`, no files) |
+| `github.publish` | Approved commit of GitHub Builder files with the keyring token |
 
 Versioning: `v` must equal the engine's `PROTOCOL_VERSION`; `engine.hello` rejects a different protocol with an explicit upgrade message. New methods are additive within a version; breaking changes bump the version.
 

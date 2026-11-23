@@ -1,4 +1,4 @@
-# Project handoff — RepoMind 0.1.0
+# Project handoff — RepoMind 0.2.0
 
 This document lets another engineer or AI assistant continue RepoMind without re-discovering it. Read [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) first for goals and constraints.
 
@@ -22,9 +22,11 @@ Detailed design, diagrams, algorithms and the protocol: [ARCHITECTURE.md](ARCHIT
 
 **Core** — `lang` (detection, exclusions, safe paths) · `filter` (gitignore/exclusions) · `secrets` · `injection` · `parsers/*` (scan, jvm, tsjs, langs, build) · `indexer` · `graph` · `search` (BM25F) · `retrieval` · `context` · `impact` · `diff` · `regression` · `buildlog` · `memory` · `workflow` · `commands` · `github` · `protocol` · `prompts/modes`, `prompts/builder`.
 
+**Core (GitHub Builder)** — `githubMode` (prompts + parser), `github.publishFiles` / `fetchSnapshot`.
+
 **Engine** — `main` (origin check, framing, dispatch, logging) · `nm` (framing) · `handlers` (all methods + validation) · `projects` (registry, path confinement) · `scan` · `git` (status, checkpoints) · `patch` (check/apply/revert, non-git transactional apply with backups) · `commands` (detect, prepare, approval tokens, run, cancel, toolchains) · `env` (allow-listed env, login-shell import) · `keyring` (secret-tool) · `dialog` (kdialog/zenity) · `doctor` · `config` · `errors` · `proc`.
 
-**Extension** — `lib/store` (state + pipelines) · `lib/db` (IndexedDB) · `lib/engine` (Native Messaging client) · `lib/indexing` + `indexer.worker` · `lib/github` (browser import, session token) · `lib/localFolder` (File System Access) · `lib/prompting` (selection/impact/prompt glue) · `lib/patches` (response → diff) · `screens/*` · `components/ui`, `PathLabel`.
+**Extension** — `screens/GitHubBuilder` (session per project in IndexedDB `kv: builder:<projectId>`), `lib/github.publishViaBrowser`, `store.applyPublished` · `lib/store` (state + pipelines) · `lib/db` (IndexedDB) · `lib/engine` (Native Messaging client) · `lib/indexing` + `indexer.worker` · `lib/github` (browser import, session token) · `lib/localFolder` (File System Access) · `lib/prompting` (selection/impact/prompt glue) · `lib/patches` (response → diff) · `screens/*` · `components/ui`, `PathLabel`.
 
 ## Data flow
 
@@ -83,9 +85,9 @@ What was actually executed in the development environment (Linux x86_64, Node 22
 | Check | Result |
 |---|---|
 | ESLint, TypeScript (3 projects) | pass |
-| Vitest: 132 tests (core units, engine over real stdio, benchmark guard) | pass |
+| Vitest: 145 tests (core units incl. GitHub publishing against an in-memory GitHub fake, engine over real stdio, benchmark guard) | pass |
 | Production builds (engine 136 KB, extension) | pass |
-| Chrome end-to-end (`scripts/e2e-chrome.mjs`): extension loads with stable ID, side panel options set, UI renders, **extension ↔ engine Native Messaging connection**, local folder import + indexing, explorer, module graph, context retrieval + prompt with real code + impact report, workflow task creation, patch analysis + `git apply --check` + approved application (file changed on disk, checkpoint ref created), Gradle command detection + approved custom command run, memory persistence across reload, settings | 12/12 pass |
+| Chrome end-to-end (`scripts/e2e-chrome.mjs`): extension loads with stable ID, side panel options set, UI renders, **extension ↔ engine Native Messaging connection**, local folder import + indexing, explorer, module graph, context retrieval + prompt with real code + impact report, workflow task creation, patch analysis + `git apply --check` + approved application (file changed on disk, checkpoint ref created), Gradle command detection + approved custom command run, memory persistence across reload, settings, session token, **empty GitHub repo import, GitHub Builder parse/validate/publish (2 batches) against a mocked GitHub API** | 16/16 pass |
 | `scripts/install.sh` in a throw-away `$HOME` (Chrome + Chromium registration, launcher, doctor) | pass |
 | `scripts/selftest.mjs` against the installed engine (protocol, git apply/revert/checkpoint, Android Gradle detection, approval, sudo refusal) | pass |
 | `scripts/uninstall.sh --purge` | pass |
@@ -94,6 +96,7 @@ What was actually executed in the development environment (Linux x86_64, Node 22
 **Not verified here** (environment limits — please verify on CachyOS):
 
 - Live GitHub zipball download: the sandbox proxy blocked `/zipball` (HTTP 403), metadata requests worked. Covered by mocked client tests and zip ingestion tests.
+- Live publishing to GitHub: tested only against in-memory and intercepted fake GitHub APIs that implement the same endpoints; not against github.com.
 - Private repository import with a real token and keyring: `secret-tool` was not installed; keyring code paths are untested against a real Secret Service.
 - A real `./gradlew assembleDebug`/`test` on an Android project: no Android SDK/Gradle distribution available. Detection, approval and execution plumbing are verified with other commands.
 - The installer on actual CachyOS (tested on a Debian-based environment with bash; uses only POSIX tools + bash).

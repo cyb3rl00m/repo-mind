@@ -11,7 +11,7 @@ RepoMind is a Chrome extension plus a small local companion (the *engine*). It d
 - running your real build and tests (with your approval) and sending the actual errors back
 - remembering architecture decisions across conversations
 
-RepoMind never calls an AI API, never automates or reads the DeepSeek page and never pushes to GitHub. You copy a prompt into DeepSeek yourself and paste the answer back. Everything else happens on your machine.
+RepoMind never calls an AI API and never automates or reads the DeepSeek page. It only writes to GitHub when you press **Publish** in GitHub Builder and confirm. You copy a prompt into DeepSeek yourself and paste the answer back. Everything else happens on your machine.
 
 > RepoMind does not change DeepSeek's model. It improves what the model sees and checks what it produces. It does not promise results equal to any other model.
 
@@ -29,6 +29,7 @@ RepoMind never calls an AI API, never automates or reads the DeepSeek page and n
 | **Patch review** | Unified-diff and whole-file extraction from DeepSeek answers, hunk-count repair, path safety (absolute, `..`, symlink escape, `.git/`, secret files, deletions), in-memory application, regression findings with explanations, regression checklist, `git apply --check`, approved application with checkpoints, revert, `.patch` export. |
 | **Build & test** | Detects Gradle/Android, Maven, npm/pnpm/yarn, pytest/ruff/mypy, cargo, go, make. Shows the exact command, directory and side-effects; runs only after approval; no shell, no sudo; timeout and output cap; parses Kotlin, javac, AAPT, lint, tsc, ESLint, rustc, go, pytest, JUnit, Vitest/Jest output. |
 | **Error → repair loop** | Real diagnostics + current source of the failing files + original requirement + applied diff → targeted correction prompt. Attempts are counted; nothing is “fixed” until verification passes. |
+| **GitHub Builder** | Build a whole app from an empty GitHub repository with DeepSeek. RepoMind puts DeepSeek into **GITHUB MODE** (complete files in a strict `=== FILE:` format, batches with a REMAINING list), checks every file (placeholders, unsafe paths, secrets, binaries, truncated answers), shows diffs, and — after you approve — commits them to the connected repository in one commit (or to a new branch). “Continue” and “fix and resend” prompts keep multi-batch builds going. |
 | **Project memory** | Objectives, architecture, stack, conventions, dependencies, decisions, known bugs, tasks, limitations, constraints — each tagged *verified* (from the index), *approved* (by you) or *suggested* (by AI, excluded from prompts until approved). Versioned, editable, exportable as `PROJECT_CONTEXT.md`, `ARCHITECTURE.md`, `DEVELOPMENT_STATUS.md`, `DECISIONS.md`, `KNOWN_ISSUES.md`. |
 
 ## Quick start (CachyOS / Arch)
@@ -44,6 +45,16 @@ node scripts/selftest.mjs       # optional: verifies engine, git integration and
 Then in Chrome: `chrome://extensions` → **Developer mode** → **Load unpacked** → `packages/extension/dist`. The extension ID must be `ddblnfbnekcpcpnnbeioffideiikfgmp`. Click the toolbar icon to open the side panel.
 
 Full guide: [INSTALLATION.md](INSTALLATION.md).
+
+## Building an app from an empty GitHub repo
+
+1. Create an empty repository on GitHub. Create a fine-grained token for **only that repository** with **Contents: Read and write** + **Metadata: Read-only**; add it in *Settings → GitHub access* (keyring via the engine, or session-only).
+2. *Repositories* → import `owner/repo` (empty repositories import with 0 files).
+3. *GitHub Builder* → describe the app → **Copy GITHUB MODE prompt** → paste into DeepSeek.
+4. Paste DeepSeek's whole answer → **Check files** → review → **Publish**.
+5. **Copy “continue” prompt** → DeepSeek writes the next batch → check → publish. Repeat until REMAINING is NONE.
+
+Android note: DeepSeek cannot produce binary files such as `gradle/wrapper/gradle-wrapper.jar`; open the project once in Android Studio (or run `gradle wrapper`) and commit the wrapper yourself.
 
 ## A typical session
 
@@ -68,7 +79,7 @@ benchmarks/          Fixture repositories, tasks, retrieval benchmark, A/B proto
 
 ## Status and verification
 
-See [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md#verification-status) for exactly what was tested and how. In short: lint, type-check, 132 unit/integration tests, production builds, a 12-step end-to-end test in real Chrome (extension ↔ engine over Native Messaging), and the installer + self-test all pass in the development environment. Live GitHub zip download and a real Android Gradle build could not be executed there and are covered by mocked tests and command detection only.
+See [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md#verification-status) for exactly what was tested and how. In short: lint, type-check, 145 unit/integration tests, production builds, a 16-step end-to-end test (including GitHub Builder against a mocked GitHub API) in real Chrome (extension ↔ engine over Native Messaging), and the installer + self-test all pass in the development environment. Live GitHub API calls (zip download, publishing) and a real Android Gradle build could not be executed there and are covered by mocked tests and command detection only.
 
 ## Documentation
 

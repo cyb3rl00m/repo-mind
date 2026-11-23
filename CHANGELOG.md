@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] — 2026-11-23
+
+### Added
+- **GitHub Builder** screen: GITHUB MODE prompts for DeepSeek (start / continue / fix-and-resend), parser for `=== FILE:` answers with plan, batch, REMAINING and MANUAL STEPS, per-file validation (placeholders, truncation, unsafe paths, secret files, binaries, embedded secrets), diff preview, approved publishing to the connected repository (one commit, optional new branch, fast-forward only, stale-branch detection), publish history, local snapshot update without re-downloading.
+- Engine method `github.publish` (keyring token); browser publishing with a session token.
+- End-to-end steps for empty-repo import and two publish batches against a mocked GitHub API.
+
+### Fixed
+- Importing an **empty GitHub repository** failed (GitHub answers 409 for commits/zipball). It now imports as a project with zero files.
+
 ## [0.1.0] — 2026-11-23
 
 First release.

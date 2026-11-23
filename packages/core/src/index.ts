@@ -22,3 +22,4 @@ export * from './github.js';
 export * from './protocol.js';
 export * from './prompts/modes.js';
 export * from './prompts/builder.js';
+export * from './githubMode.js';

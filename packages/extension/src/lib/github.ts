@@ -1,6 +1,6 @@
-import { GitHubClient, filesFromZip, type FetchLike, type IngestOptions } from '@repomind/core';
+import { GitHubClient, fetchSnapshot, publishFiles, type FetchLike, type IngestOptions, type PublishOptions, type PublishResult } from '@repomind/core';
 
-const browserFetch: FetchLike = (url, init) => fetch(url, { headers: init?.headers, signal: init?.signal, credentials: 'omit', redirect: 'follow' });
+const browserFetch: FetchLike = (url, init) => fetch(url, { method: init?.method ?? 'GET', headers: init?.headers, body: init?.body, signal: init?.signal, credentials: 'omit', redirect: 'follow', cache: 'no-store' });
 
 /** Session-only token (chrome.storage.session lives in memory and is cleared when the browser quits). */
 export async function getSessionToken(): Promise<string | undefined> {
@@ -18,18 +18,15 @@ export function browserGitHub(token?: string): GitHubClient {
   return new GitHubClient(browserFetch, token);
 }
 
-/** Imports a GitHub repository directly from the browser (public repos, or with a session token). */
+/** Imports a GitHub repository directly from the browser (public repos, or with a session token). Empty repos give zero files. */
 export async function importViaBrowser(owner: string, repo: string, ref: string | undefined, opts: IngestOptions & { subPath?: string; useSessionToken?: boolean }, progress: (m: string) => void) {
   const token = opts.useSessionToken ? await getSessionToken() : undefined;
-  const gh = browserGitHub(token);
-  progress('Fetching repository metadata');
-  const meta = await gh.repo(owner, repo);
-  const branches = await gh.branches(owner, repo).catch(() => []);
-  const useRef = ref || meta.defaultBranch;
-  const commit = await gh.commitSha(owner, repo, useRef);
-  progress(`Downloading snapshot ${commit.sha.slice(0, 10)}`);
-  const zip = await gh.zipball(owner, repo, commit.sha);
-  progress(`Extracting ${(zip.byteLength / 1e6).toFixed(1)} MB`);
-  const r = filesFromZip(zip, opts);
-  return { meta, branches, ref: useRef, commit, files: r.files, skipped: r.skipped };
+  return fetchSnapshot(browserGitHub(token), owner, repo, ref, opts, progress);
+}
+
+/** Publishes from the browser with the session token (used when the engine/keyring is not available). */
+export async function publishViaBrowser(o: PublishOptions, progress: (m: string) => void): Promise<PublishResult> {
+  const token = await getSessionToken();
+  if (!token) throw new Error('Publishing needs a GitHub token with “Contents: Read and write”. Add one in Settings → GitHub access.');
+  return publishFiles(browserGitHub(token), o, progress);
 }

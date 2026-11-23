@@ -11,6 +11,7 @@ import { PatchReview } from '../screens/PatchReview';
 import { BuildTest } from '../screens/BuildTest';
 import { MemoryCenter } from '../screens/MemoryCenter';
 import { SettingsScreen } from '../screens/Settings';
+import { GitHubBuilder } from '../screens/GitHubBuilder';
 import { openUrl } from '../lib/util';
 
 const NAV: { id: Screen; label: string; icon: string; needsProject?: boolean }[] = [
@@ -20,6 +21,7 @@ const NAV: { id: Screen; label: string; icon: string; needsProject?: boolean }[]
   { id: 'brain', label: 'Project Brain', icon: 'brain', needsProject: true },
   { id: 'context', label: 'Context Builder', icon: 'context', needsProject: true },
   { id: 'workflow', label: 'Workflow', icon: 'workflow', needsProject: true },
+  { id: 'builder', label: 'GitHub Builder', icon: 'github', needsProject: true },
   { id: 'patch', label: 'Patch Review', icon: 'patch', needsProject: true },
   { id: 'build', label: 'Build & Test', icon: 'build', needsProject: true },
   { id: 'memory', label: 'Memory', icon: 'memory', needsProject: true },
@@ -41,6 +43,7 @@ export function App() {
       brain: <Brain />,
       context: <ContextBuilder />,
       workflow: <Workflow />,
+      builder: <GitHubBuilder />,
       patch: <PatchReview />,
       build: <BuildTest />,
       memory: <MemoryCenter />,

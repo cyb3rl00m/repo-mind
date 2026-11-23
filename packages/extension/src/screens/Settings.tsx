@@ -111,7 +111,7 @@ function GitHubSettings() {
       } else {
         const info = await browserGitHub(token.trim()).tokenInfo();
         await setSessionToken(token.trim());
-        setWarning(info.classic ? 'Classic token detected. A fine-grained token limited to Contents: Read-only + Metadata: Read-only on selected repositories is safer.' : null);
+        setWarning(info.classic ? 'Classic token detected: it applies to every repository you can access. A fine-grained token limited to selected repositories is safer.' : null);
         s.toast(`Session token saved for ${info.login}. It is kept in memory only and cleared when the browser closes.`, 'success');
       }
       setToken('');
@@ -124,7 +124,7 @@ function GitHubSettings() {
   };
 
   return (
-    <Card title="GitHub access" subtitle="Only needed for private repositories. Use a fine-grained personal access token with read-only permissions.">
+    <Card title="GitHub access" subtitle="Needed for private repositories and for publishing with GitHub Builder. Use a fine-grained personal access token limited to the repositories you choose.">
       <Kv
         rows={[
           ['Keyring', connected ? (status ? (status.available ? <Badge key="k" tone="ok">available</Badge> : <span key="k" className="small">{status.detail}</span>) : '…') : 'engine not connected'],
@@ -134,7 +134,7 @@ function GitHubSettings() {
       <ol className="small" style={{ margin: 0, paddingLeft: 18 }}>
         <li>Open <a href="#" onClick={(e) => { e.preventDefault(); openUrl('https://github.com/settings/personal-access-tokens/new'); }}>GitHub → Fine-grained tokens</a>.</li>
         <li>Repository access: <em>Only select repositories</em>.</li>
-        <li>Permissions: <strong>Contents: Read-only</strong>, <strong>Metadata: Read-only</strong>. Nothing else.</li>
+        <li>Permissions: <strong>Metadata: Read-only</strong> plus <strong>Contents: Read-only</strong> (import only) or <strong>Contents: Read and write</strong> (to publish with GitHub Builder). Nothing else.</li>
       </ol>
       <div className="row nowrap">
         <input className="input grow mono" type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} placeholder="github_pat_…" aria-label="GitHub token" />

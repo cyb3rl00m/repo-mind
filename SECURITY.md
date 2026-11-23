@@ -13,7 +13,8 @@ RepoMind connects a browser extension to a local process that can read your proj
 | Secrets leak into prompts, logs or exports | Secret files are excluded from indexing; secret-looking values are redacted from context, outlines, signatures, regression explanations, command output and logs. GitHub tokens live in the OS keyring (via `secret-tool`, token passed on stdin), never in prompts, exports, IndexedDB or logs; remote URLs have credentials stripped. |
 | Prompt injection in repository files | Files are wrapped in delimited blocks; the prompt states that file content is data; RepoMind's delimiters inside files are neutralized; instruction-like text is flagged in the UI. RepoMind itself never executes anything found in a repository file. |
 | Build commands reading credentials from the browser environment | Commands get an allow-listed environment (paths, SDK homes, locale, proxies). |
-| Over-broad GitHub access | Only read-only fine-grained tokens are recommended; classic tokens trigger a warning; the extension never writes to GitHub. |
+| Over-broad GitHub access | Fine-grained tokens limited to selected repositories are recommended (read-only for import; Contents: Read and write only if you publish with GitHub Builder); classic tokens trigger a warning. |
+| Unwanted writes to GitHub | Only GitHub Builder writes, only after the confirmation dialog, one commit per publish, fast-forward only (never force-push), stops if the branch moved since the snapshot (`expectedHead`), optional new branch; blocks unsafe paths, `.git/`, secret files, binaries, files with elision placeholders or secret-looking values; size and file-count limits; the engine requires `approved: true`. |
 
 ## Limits you should know
 

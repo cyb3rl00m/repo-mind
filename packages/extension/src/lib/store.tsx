@@ -7,6 +7,8 @@ import {
   type EngineeringMode,
   type IngestOptions,
   type ProjectMemory,
+  type PublishFile,
+  type PublishResult,
   type PromptStage,
   type RepoIndex,
   type SkippedFile,
@@ -21,7 +23,7 @@ import { loadHandle, pickBrowserFolder, scanBrowserFolder, storeHandle } from '.
 import { DEFAULT_SETTINGS, identityOf, type Activity, type Project, type Settings } from './types';
 import { rid } from './util';
 
-export type Screen = 'dashboard' | 'repos' | 'explorer' | 'brain' | 'context' | 'workflow' | 'patch' | 'build' | 'memory' | 'settings';
+export type Screen = 'dashboard' | 'repos' | 'explorer' | 'brain' | 'context' | 'workflow' | 'builder' | 'patch' | 'build' | 'memory' | 'settings';
 
 export interface ActiveData {
   project: Project;
@@ -95,6 +97,8 @@ interface StoreValue {
   updateSettings(patch: Partial<Settings>): Promise<void>;
   wipeAll(): Promise<void>;
   registerWorktree(project: { id: string; root: string; name: string; worktreeOf?: string }): Promise<void>;
+  /** Applies files just published to GitHub to the local snapshot and re-indexes (no re-download). */
+  applyPublished(projectId: string, changes: PublishFile[], result: PublishResult): Promise<void>;
 }
 
 const Ctx = createContext<StoreValue | null>(null);
@@ -285,10 +289,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         async () => {
           await persistProject({ ...project, status: 'indexing' });
           const r = await fetchGithub(project, project.github!.ref || undefined);
-          const updated: Project = { ...project, github: { ...project.github!, ref: r.ref, sha: r.commit.sha, private: r.meta.private || usePrivate, branches: r.branches.map((b) => b.name), commitMessage: r.commit.message } };
-          log('import', `Imported ${project.name} @ ${r.ref} (${r.commit.sha.slice(0, 10)})`);
+          const updated: Project = { ...project, github: { ...project.github!, ref: r.ref, sha: r.commit.sha, private: r.meta.private || usePrivate, branches: r.branches.map((b) => b.name), commitMessage: r.commit.message, empty: r.empty } };
+          log('import', r.empty ? `Imported empty repository ${project.name}` : `Imported ${project.name} @ ${r.ref} (${r.commit.sha.slice(0, 10)})`);
           await finishIndexing(updated, r.files, r.skipped);
-          toast(`Imported ${project.name}`, 'success');
+          toast(r.empty ? `${project.name} is empty — use GitHub Builder to create the first files.` : `Imported ${project.name}`, 'success');
         },
         project
       );
@@ -378,7 +382,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           await persistProject({ ...project, status: 'indexing' });
           if (project.source === 'github') {
             const r = await fetchGithub(project, opts.ref);
-            const updated: Project = { ...project, github: { ...project.github!, ref: r.ref, sha: r.commit.sha, branches: r.branches.map((b) => b.name), commitMessage: r.commit.message } };
+            const updated: Project = { ...project, github: { ...project.github!, ref: r.ref, sha: r.commit.sha, branches: r.branches.map((b) => b.name), commitMessage: r.commit.message, empty: r.empty } };
             await finishIndexing(updated, r.files, r.skipped);
           } else if (project.source === 'local-engine') {
             if (engine.state.status !== 'connected') await engine.connect();
@@ -446,6 +450,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSettings(DEFAULT_SETTINGS);
   }, []);
 
+  const applyPublished = useCallback<StoreValue['applyPublished']>(
+    async (projectId, changes, result) => {
+      const project = (await db.get<Project>('projects', projectId)) ?? projectsRef.current.find((p) => p.id === projectId);
+      if (!project?.github) return;
+      await withBusy('Updating local snapshot', async () => {
+        const snap = (await db.get<Snapshot>('snapshots', projectId)) ?? { files: [], skipped: [] };
+        const byPath = new Map(snap.files.map((f) => [f.path, f]));
+        for (const c of changes) {
+          if (c.content === null) byPath.delete(c.path);
+          else byPath.set(c.path, { path: c.path, content: c.content, size: new TextEncoder().encode(c.content).length });
+        }
+        const branches = project.github!.branches.includes(result.branch) ? project.github!.branches : [...project.github!.branches, result.branch];
+        const updated: Project = { ...project, github: { ...project.github!, ref: result.branch, sha: result.commitSha, branches, empty: false, commitMessage: 'published by RepoMind' } };
+        log('patch', `Published ${changes.length} file(s) to ${project.name}@${result.branch} (${result.commitSha.slice(0, 10)})`);
+        await finishIndexing(updated, [...byPath.values()].sort((a, b) => a.path.localeCompare(b.path)), snap.skipped);
+      });
+    },
+    [finishIndexing, log, withBusy]
+  );
+
   const retriever = useMemo(() => (active ? new Retriever(active.index, active.contents) : null), [active?.index, active?.contents]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value: StoreValue = {
@@ -486,7 +510,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     deleteTask,
     updateSettings,
     wipeAll,
-    registerWorktree
+    registerWorktree,
+    applyPublished
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
