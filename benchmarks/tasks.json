@@ -1,0 +1,79 @@
+{
+  "description": "Representative development tasks with ground-truth files that a correct change must read or modify. Used to measure RepoMind's retrieval and impact analysis; the same tasks are used for the manual DeepSeek A/B protocol in PROTOCOL.md.",
+  "tasks": [
+    {
+      "id": "feature-multi-file",
+      "category": "Adding a feature across multiple files",
+      "fixture": "android-notes",
+      "task": "Add a pinned flag to notes so pinned notes are listed first",
+      "mustInclude": [
+        "core/data/src/main/java/com/example/notes/data/Note.kt",
+        "core/data/src/main/java/com/example/notes/data/NoteDao.kt",
+        "core/data/src/main/java/com/example/notes/data/NotesDatabase.kt",
+        "core/data/src/main/java/com/example/notes/data/NoteRepository.kt",
+        "app/src/main/java/com/example/notes/ui/NotesViewModel.kt"
+      ]
+    },
+    {
+      "id": "bugfix",
+      "category": "Fixing an existing bug",
+      "fixture": "android-notes",
+      "task": "Bug: notes that contain only whitespace are still saved when I press Add",
+      "mustInclude": ["app/src/main/java/com/example/notes/ui/NotesViewModel.kt", "app/src/main/java/com/example/notes/MainActivity.kt"]
+    },
+    {
+      "id": "refactor-shared",
+      "category": "Refactoring a shared component",
+      "fixture": "ts-shop",
+      "task": "Rename applyDiscount to applyCoupon and update every caller",
+      "mustInclude": ["src/cart/pricing.ts", "src/cart/cart.ts", "src/index.ts", "test/pricing.test.ts"]
+    },
+    {
+      "id": "broken-imports",
+      "category": "Fixing broken imports",
+      "fixture": "ts-shop",
+      "task": "src/ui/CartView.tsx: error TS2307: Cannot find module '../cart/pricing' after moving formatPrice",
+      "mustInclude": ["src/ui/CartView.tsx", "src/cart/pricing.ts"]
+    },
+    {
+      "id": "compile-failure",
+      "category": "Correcting a compilation failure",
+      "fixture": "android-notes",
+      "task": "e: file:///home/u/notes/app/src/main/java/com/example/notes/ui/NoteListAdapter.kt:24:30 Unresolved reference: noteText",
+      "mustInclude": ["app/src/main/java/com/example/notes/ui/NoteListAdapter.kt", "app/src/main/res/layout/item_note.xml"]
+    },
+    {
+      "id": "database-safe-change",
+      "category": "Modifying database functionality without breaking existing behavior",
+      "fixture": "android-notes",
+      "task": "Store an author column on each note in the Room database without losing existing data",
+      "mustInclude": [
+        "core/data/src/main/java/com/example/notes/data/Note.kt",
+        "core/data/src/main/java/com/example/notes/data/NotesDatabase.kt",
+        "core/data/src/main/java/com/example/notes/data/NoteDao.kt"
+      ]
+    },
+    {
+      "id": "android-screen",
+      "category": "Updating an Android application screen",
+      "fixture": "android-notes",
+      "task": "Show the number of notes in the main screen above the list",
+      "mustInclude": [
+        "app/src/main/java/com/example/notes/MainActivity.kt",
+        "app/src/main/res/layout/activity_main.xml",
+        "app/src/main/java/com/example/notes/ui/NotesViewModel.kt"
+      ]
+    },
+    {
+      "id": "shared-navigation",
+      "category": "Changing shared navigation",
+      "fixture": "android-notes",
+      "task": "Change AppNavigator so the settings screen opens with a slide animation for all callers",
+      "mustInclude": [
+        "app/src/main/java/com/example/notes/navigation/AppNavigator.kt",
+        "app/src/main/java/com/example/notes/MainActivity.kt",
+        "app/src/main/java/com/example/notes/settings/SettingsActivity.kt"
+      ]
+    }
+  ]
+}

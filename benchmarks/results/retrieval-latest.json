@@ -1,0 +1,119 @@
+{
+  "generatedAt": "2026-11-23T19:56:51.492Z",
+  "rows": [
+    {
+      "id": "feature-multi-file",
+      "category": "Adding a feature across multiple files",
+      "recallAt5": 0.2,
+      "recallAt10": 0.8,
+      "baselineRecallAt10": 0.8,
+      "contextRecall": 0.8,
+      "impactRecall": 0.2,
+      "contextFiles": 13,
+      "contextTokens": 2378,
+      "promptTokens": 5274,
+      "risk": "MODERATE",
+      "missing": [
+        "core/data/src/main/java/com/example/notes/data/NotesDatabase.kt"
+      ]
+    },
+    {
+      "id": "bugfix",
+      "category": "Fixing an existing bug",
+      "recallAt5": 0.5,
+      "recallAt10": 1,
+      "baselineRecallAt10": 1,
+      "contextRecall": 1,
+      "impactRecall": 0.5,
+      "contextFiles": 15,
+      "contextTokens": 2524,
+      "promptTokens": 5675,
+      "risk": "LOW",
+      "missing": []
+    },
+    {
+      "id": "refactor-shared",
+      "category": "Refactoring a shared component",
+      "recallAt5": 1,
+      "recallAt10": 1,
+      "baselineRecallAt10": 1,
+      "contextRecall": 1,
+      "impactRecall": 1,
+      "contextFiles": 7,
+      "contextTokens": 841,
+      "promptTokens": 2736,
+      "risk": "MODERATE",
+      "missing": []
+    },
+    {
+      "id": "broken-imports",
+      "category": "Fixing broken imports",
+      "recallAt5": 1,
+      "recallAt10": 1,
+      "baselineRecallAt10": 1,
+      "contextRecall": 1,
+      "impactRecall": 1,
+      "contextFiles": 5,
+      "contextTokens": 643,
+      "promptTokens": 2508,
+      "risk": "MODERATE",
+      "missing": []
+    },
+    {
+      "id": "compile-failure",
+      "category": "Correcting a compilation failure",
+      "recallAt5": 1,
+      "recallAt10": 1,
+      "baselineRecallAt10": 0.5,
+      "contextRecall": 1,
+      "impactRecall": 0.5,
+      "contextFiles": 10,
+      "contextTokens": 1840,
+      "promptTokens": 4527,
+      "risk": "MODERATE",
+      "missing": []
+    },
+    {
+      "id": "database-safe-change",
+      "category": "Modifying database functionality without breaking existing behavior",
+      "recallAt5": 1,
+      "recallAt10": 1,
+      "baselineRecallAt10": 1,
+      "contextRecall": 1,
+      "impactRecall": 1,
+      "contextFiles": 13,
+      "contextTokens": 2375,
+      "promptTokens": 6332,
+      "risk": "HIGH",
+      "missing": []
+    },
+    {
+      "id": "android-screen",
+      "category": "Updating an Android application screen",
+      "recallAt5": 0.6666666666666666,
+      "recallAt10": 1,
+      "baselineRecallAt10": 1,
+      "contextRecall": 1,
+      "impactRecall": 0.3333333333333333,
+      "contextFiles": 17,
+      "contextTokens": 2707,
+      "promptTokens": 6186,
+      "risk": "MODERATE",
+      "missing": []
+    },
+    {
+      "id": "shared-navigation",
+      "category": "Changing shared navigation",
+      "recallAt5": 1,
+      "recallAt10": 1,
+      "baselineRecallAt10": 1,
+      "contextRecall": 1,
+      "impactRecall": 0.6666666666666666,
+      "contextFiles": 4,
+      "contextTokens": 798,
+      "promptTokens": 2813,
+      "risk": "LOW",
+      "missing": []
+    }
+  ]
+}

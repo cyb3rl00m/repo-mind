@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "RepoMind",
+  "short_name": "RepoMind",
+  "version": "0.1.0",
+  "description": "Local-first engineering intelligence for DeepSeek Web: repository indexing, context packages, impact analysis, patch review and local verification.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArRKIIPNjbLiTULg/VwwtKqQQP2h3YTSZM+7JZCHQmmgPwIr8k9D8u/wm+OT+IwPF3qBd0K6cmt5ya6dv2zCE5e5999ha5cFtMgF6Zww8RnqwJsMzfpTx9A0HLpQUF6v4Tbl+V2KXOCTE62o+XMYP+ql6kEwxjRvNsd90BXUClRlH/B11dxzSVXy1zI1XoA33PS0/s4qaxSFuh/Acg+P7UrQUu+1g4F8hmmXE3pz9SQgN0P0D+kX4XGkczUnrvF6bm/haZkILIYIn39lE26QV0ymptSVS9QQrDmg2CNBZzSiZ/4foR269wJ3MHaCi+MmA9xvSs0/+f29IKGz9JnOESQIDAQAB",
+  "minimum_chrome_version": "116",
+  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "action": { "default_title": "Open RepoMind", "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png" } },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "permissions": ["sidePanel", "storage", "nativeMessaging", "clipboardWrite"],
+  "optional_permissions": ["notifications"],
+  "host_permissions": ["https://api.github.com/*", "https://codeload.github.com/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.github.com https://codeload.github.com; worker-src 'self'"
+  }
+}
