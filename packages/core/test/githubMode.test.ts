@@ -73,6 +73,18 @@ describe('GITHUB MODE parser', () => {
     expect(r.plan).toHaveLength(3);
   });
 
+  it('keeps code blocks inside markdown files (README with ```bash sections, plain ``` fence)', () => {
+    const text = [
+      '=== FILE: README.md', 'ACTION: CREATE', '```markdown', '# App', '', '## Build', '', '```bash', 'cmake -B build', '```', '', '## Data', '', '```', '~/.local/share/app', '```', '', 'MIT', '```', '',
+      '=== FILE: src/main.cpp', 'ACTION: CREATE', '```cpp', 'int main() {}', '```'
+    ].join('\n');
+    const r = parseGithubMode(text, new Set());
+    expect(r.files.map((f) => f.path)).toEqual(['README.md', 'src/main.cpp']);
+    expect(r.files[0]!.content).toBe('# App\n\n## Build\n\n```bash\ncmake -B build\n```\n\n## Data\n\n```\n~/.local/share/app\n```\n\nMIT\n');
+    expect(r.files[1]!.content).toBe('int main() {}\n');
+    expect(r.files[1]!.issues.some((i) => /check that its end is complete/.test(i.message))).toBe(true);
+  });
+
   it('detects truncated answers', () => {
     const cut = '=== FILE: a.kt\nACTION: CREATE\n```kotlin\nfun a() {\n';
     const r = parseGithubMode(cut, new Set());

@@ -70,6 +70,7 @@ export function parseGithubMode(response: string, existing: Set<string>): Github
   const files: GeneratedFile[] = [];
   const issues: string[] = [];
   let truncated = false;
+  let lastFileUnterminated: string | null = null;
   let i = 0;
   let statusStart = -1;
 
@@ -103,25 +104,38 @@ export function parseGithubMode(response: string, existing: Set<string>): Github
     if (fo) {
       const fence = fo[1]!;
       if (!type && fo[2]) type = fo[2];
-      const body: string[] = [];
-      i++;
-      let closed = false;
-      while (i < lines.length) {
-        const l = lines[i]!;
-        if (l.trim() === fence || (l.trim().startsWith(fence[0]!.repeat(fence.length)) && l.trim().replace(/[`~]/g, '') === '')) {
-          closed = true;
-          i++;
+      // Files such as README.md contain their own ``` blocks, so the FIRST bare fence is not
+      // necessarily the end. The block ends at the LAST bare fence before the next file header,
+      // `=== END FILE`, or the status block.
+      const open = i;
+      let sectionEnd = lines.length;
+      for (let k = open + 1; k < lines.length; k++) {
+        if (HEADER.test(lines[k]!) || END_FILE.test(lines[k]!) || STATUS.test(lines[k]!)) {
+          sectionEnd = k;
           break;
         }
-        body.push(l);
-        i++;
       }
+      const isClose = (l: string) => {
+        const t = l.trim();
+        return t.length >= fence.length && t[0] === fence[0] && /^(`+|~+)$/.test(t);
+      };
+      let close = -1;
+      for (let k = sectionEnd - 1; k > open; k--) {
+        if (isClose(lines[k]!)) {
+          close = k;
+          break;
+        }
+      }
+      const closed = close > open;
       if (!closed) {
         truncated = true;
         issues.push(`The answer stops inside ${rawPath} (no closing code fence). That file is incomplete — ask DeepSeek to “continue”.`);
       }
-      content = body.join('\n') + '\n';
-      if (!closed) content = null;
+      content = closed ? lines.slice(open + 1, close).join('\n') + '\n' : null;
+      i = closed ? close + 1 : sectionEnd;
+      if (closed && sectionEnd === lines.length && !lines.slice(close + 1).some((l) => l.trim())) {
+        lastFileUnterminated = rawPath;
+      }
     }
     if (i < lines.length && END_FILE.test(lines[i]!)) i++;
 
@@ -181,6 +195,10 @@ export function parseGithubMode(response: string, existing: Set<string>): Github
   }
   if (!files.length) issues.push('No file blocks found. The answer must use the GITHUB MODE format (=== FILE: path …). Paste the whole answer, or ask DeepSeek to re-send in GITHUB MODE.');
   if (statusStart < 0 && files.length) issues.push('No GITHUB MODE STATUS block at the end — the answer may be cut off.');
+  if (statusStart < 0 && lastFileUnterminated) {
+    const f = files.find((x) => x.path === lastFileUnterminated);
+    f?.issues.push({ severity: 'warning', message: 'Last file of an answer without END FILE / status block: check that its end is complete.' });
+  }
   return { files, truncated, remaining, manualSteps, plan, batch, summary, issues };
 }
 

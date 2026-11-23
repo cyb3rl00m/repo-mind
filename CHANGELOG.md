@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.1] — 2026-11-23
+
+### Fixed
+- GitHub Builder cut files short when they contained their own code blocks (e.g. a README.md with ```bash sections): the file ended at the first inner fence. A file block now ends at the last fence before the next `=== FILE:`, `=== END FILE` or the status block.
+- The last file of an answer without END FILE / status block now gets a “check that its end is complete” warning.
+
 ## [0.2.0] — 2026-11-23
 
 ### Added
