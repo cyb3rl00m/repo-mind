@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.2] — 2026-11-24
+
+First public release.
+
+### Added
+- New README: what RepoMind is, installation (prebuilt or source), token setup, quick starts, every screen explained with screenshots, engineering modes, supported languages, architecture diagram, safety and FAQ.
+- Prebuilt release archive `repomind-prebuilt.tar.gz` (built extension + engine + scripts, no npm needed) with SHA-256 checksum, built by `scripts/package-release.sh`.
+- Automatic GitHub releases when the version on `main` changes.
+
 ## [0.2.1] — 2026-11-23
 
 ### Fixed
