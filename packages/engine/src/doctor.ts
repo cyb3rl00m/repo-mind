@@ -32,7 +32,7 @@ export async function runDoctor(): Promise<number> {
   else fail(`Node.js ${process.versions.node} is too old (need >= 20)`);
   const gitBin = findExecutable('git');
   if (gitBin) ok(`git: ${(await run(gitBin, ['--version'])).stdout.trim()}`);
-  else fail('git not found (sudo pacman -S git)');
+  else fail('git not found — install the "git" package with your package manager');
 
   process.stdout.write('\nNative Messaging registration\n');
   let registered = 0;

@@ -15,7 +15,7 @@ export interface KeyringStatus {
 
 export async function keyringStatus(): Promise<KeyringStatus> {
   const bin = findExecutable('secret-tool');
-  if (!bin) return { backend: 'none', available: false, detail: 'secret-tool not found. Install libsecret (sudo pacman -S libsecret) and a Secret Service provider (GNOME Keyring or KWallet).' };
+  if (!bin) return { backend: 'none', available: false, detail: 'secret-tool not found. Install it (Arch/CachyOS: libsecret, Debian/Ubuntu: libsecret-tools, Fedora: libsecret, openSUSE: secret-tool) and a Secret Service provider (GNOME Keyring, or KWallet with Secret Service enabled).' };
   const r = await run(bin, ['lookup', ...ATTRS], { timeoutMs: 15_000 });
   // Exit 1 with empty output simply means "not found"; other errors mean no Secret Service.
   if (r.code !== 0 && r.stderr.trim() && !/No such secret/i.test(r.stderr)) {

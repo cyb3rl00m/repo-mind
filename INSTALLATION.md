@@ -1,21 +1,48 @@
-# Installation (CachyOS first)
+# Installation (all Linux distributions)
 
-RepoMind installs **per user**. Nothing is installed system-wide and the installer never uses `sudo`; when a system package is missing it prints the `pacman` command for you to run.
+RepoMind installs **per user**. Nothing is installed system-wide and the installer never uses `sudo`; when a system package is missing it detects your package manager (pacman, apt, dnf or zypper) and prints the command for you to run.
+
+The short, step-by-step tutorial for every distribution is in the [README](README.md#-installation). This page adds details and troubleshooting.
 
 ## 1. Dependencies
 
+Node.js **20 or newer** and git are required. `npm` is only needed when building from source.
+
+| | Arch / CachyOS / Manjaro / EndeavourOS | Debian / Ubuntu / Mint / Pop!_OS | Fedora / Nobara | openSUSE |
+|---|---|---|---|---|
+| Node.js (required) | `nodejs` | `nodejs` (or NodeSource, see below) | `nodejs` | `nodejs22` |
+| git (required) | `git` | `git` | `git` | `git` |
+| npm (source builds) | `npm` | `npm` | `npm` | `npm22` |
+| keyring CLI `secret-tool` | `libsecret` | `libsecret-tools` | `libsecret` | `secret-tool` |
+| folder picker | `kdialog` / `zenity` | `kdialog` / `zenity` | `kdialog` / `zenity` | `kdialog` / `zenity` |
+| JDK for Android builds | `jdk17-openjdk` | `openjdk-17-jdk` | `java-17-openjdk-devel` | `java-17-openjdk-devel` |
+
 ```bash
-# required
-sudo pacman -S --needed nodejs npm git
-# optional
-sudo pacman -S --needed libsecret        # store a private-repo GitHub token in the keyring
-sudo pacman -S --needed kdialog          # native folder picker on KDE (zenity on GNOME)
-sudo pacman -S --needed jdk17-openjdk    # Android/Gradle builds (match your project's JDK)
+# Arch / CachyOS / Manjaro / EndeavourOS
+sudo pacman -S --needed nodejs git libsecret kdialog
+# Debian / Ubuntu / Mint / Pop!_OS
+sudo apt install nodejs git libsecret-tools zenity
+# Fedora / Nobara
+sudo dnf install nodejs git libsecret zenity
+# openSUSE
+sudo zypper install nodejs22 git secret-tool zenity
 ```
 
-Node.js 20 or newer is required. For Android builds you also need the Android SDK (usually installed by Android Studio) with `ANDROID_HOME` set, or `sdk.dir` in the project's `local.properties`.
+**Old Node.js on Debian/Ubuntu.** Debian 12, Ubuntu 22.04/24.04 and Linux Mint 21/22 ship Node.js 18 or older. Check with `node --version`; if it is below v20, install Node.js 22 from NodeSource:
 
-**Keyring:** `secret-tool` talks to the Secret Service API. On KDE Plasma enable it in *System Settings → KDE Wallet* (or install `gnome-keyring`). Without a keyring RepoMind keeps a token only in browser session memory.
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource_setup.sh
+sudo bash /tmp/nodesource_setup.sh
+sudo apt install -y nodejs
+```
+
+Alternatives on any distribution: the prebuilt binaries from <https://nodejs.org/en/download> or [nvm](https://github.com/nvm-sh/nvm). The installer records the absolute path of the `node` it finds, so the engine keeps using the same Node even when Chrome starts it without your shell's `PATH`. If you switch Node versions with nvm later, run the installer again.
+
+For Android builds you also need the Android SDK (usually installed by Android Studio) with `ANDROID_HOME` set, or `sdk.dir` in the project's `local.properties`.
+
+**Keyring:** `secret-tool` talks to the Secret Service API. GNOME (Ubuntu, Fedora Workstation, Pop!_OS) provides it through GNOME Keyring out of the box. On KDE Plasma enable it in *System Settings → KDE Wallet* (or install `gnome-keyring`). Without a keyring RepoMind keeps a token only in browser session memory.
+
+**Browser:** use a natively packaged Chromium-based browser (Chrome `.deb`/`.rpm`/AUR, distro Chromium on Arch/Fedora/openSUSE/Debian, Brave, Vivaldi, Edge). Snap and Flatpak browsers load the extension but their sandbox cannot start the local engine. Ubuntu's `chromium` package is a Snap — install Google Chrome instead.
 
 ## 2. Get RepoMind
 

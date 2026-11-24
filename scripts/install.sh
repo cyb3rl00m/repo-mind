@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# RepoMind installer for CachyOS / Arch Linux (works on other Linux distributions too).
+# RepoMind installer for Linux (Arch/CachyOS, Debian/Ubuntu, Fedora, openSUSE and others).
 #
 # - Installs the local engine into ~/.local/share/repomind/engine (user-level, no root).
 # - Registers the Chrome Native Messaging host for the browsers found in your home directory.
@@ -36,21 +36,53 @@ if [[ $EUID -eq 0 && -z "${REPOMIND_ALLOW_ROOT:-}" ]]; then
   die "Do not run the installer as root. It installs into your user account only."
 fi
 
-say "Checking dependencies"
-command -v node >/dev/null || die "Node.js not found. Install it with: sudo pacman -S nodejs npm"
+# Package names per distro family: pick the right install hint for this system.
+PM="unknown"
+if command -v pacman >/dev/null; then PM="pacman"
+elif command -v apt-get >/dev/null; then PM="apt"
+elif command -v dnf >/dev/null; then PM="dnf"
+elif command -v zypper >/dev/null; then PM="zypper"
+fi
+# hint <arch> <debian/ubuntu> <fedora> <opensuse>
+hint() {
+  case "$PM" in
+    pacman) echo "sudo pacman -S --needed $1" ;;
+    apt)    echo "sudo apt install $2" ;;
+    dnf)    echo "sudo dnf install $3" ;;
+    zypper) echo "sudo zypper install $4" ;;
+    *)      echo "install: $1 (names differ per distro)" ;;
+  esac
+}
+node_help() {
+  echo "Install Node.js 20 or newer:"
+  echo "      $(hint nodejs nodejs nodejs nodejs22)"
+  echo "    If your distro's Node.js is older than 20 (e.g. Debian 12, Ubuntu 22.04/24.04),"
+  echo "    use the official packages from https://nodejs.org/en/download (NodeSource for apt/dnf),"
+  echo "    or nvm, then run this installer again."
+}
+
+say "Checking dependencies ($PM)"
+command -v node >/dev/null || die "Node.js not found. $(node_help)"
 NODE_BIN="$(command -v node)"
 NODE_MAJOR="$("$NODE_BIN" -p 'process.versions.node.split(".")[0]')"
-[[ "$NODE_MAJOR" -ge 20 ]] || die "Node.js $("$NODE_BIN" --version) is too old; RepoMind needs Node 20 or newer."
+[[ "$NODE_MAJOR" -ge 20 ]] || die "Node.js $("$NODE_BIN" --version) is too old; RepoMind needs Node 20 or newer. $(node_help)"
 ok "Node.js $("$NODE_BIN" --version) at $NODE_BIN"
-command -v git >/dev/null || die "git not found. Install it with: sudo pacman -S git"
+command -v git >/dev/null || die "git not found. Install it with: $(hint git git git git)"
 ok "$(git --version)"
-if command -v secret-tool >/dev/null; then ok "secret-tool (system keyring for GitHub tokens)"; else warn "secret-tool missing — optional, for private repos: sudo pacman -S libsecret"; fi
-if command -v kdialog >/dev/null || command -v zenity >/dev/null; then ok "folder picker available"; else warn "no kdialog/zenity — optional folder picker: sudo pacman -S kdialog"; fi
-if command -v java >/dev/null; then ok "java found (Gradle builds)"; else warn "java not found — needed for Android/Gradle builds: sudo pacman -S jdk17-openjdk"; fi
+if command -v secret-tool >/dev/null; then ok "secret-tool (system keyring for GitHub tokens)"; else warn "secret-tool missing — optional, keeps GitHub tokens in the keyring: $(hint libsecret libsecret-tools libsecret secret-tool)"; fi
+if command -v kdialog >/dev/null || command -v zenity >/dev/null; then ok "folder picker available"; else warn "no kdialog/zenity — optional folder picker: $(hint 'kdialog or zenity' 'zenity or kdialog' 'zenity or kdialog' 'zenity or kdialog')"; fi
+if command -v java >/dev/null; then ok "java found (Gradle builds)"; else warn "java not found — needed only for Android/Gradle builds: $(hint jdk17-openjdk openjdk-17-jdk java-17-openjdk-devel java-17-openjdk-devel)"; fi
+# Snap/Flatpak browsers are sandboxed and cannot start native messaging hosts.
+if command -v snap >/dev/null && snap list chromium >/dev/null 2>&1; then
+  warn "Snap Chromium detected: it cannot start the RepoMind engine (sandbox). Use Google Chrome (.deb/.rpm) or a non-Snap Chromium for local features."
+fi
+if command -v flatpak >/dev/null && flatpak list --app 2>/dev/null | grep -Eqi 'chrom|brave|vivaldi'; then
+  warn "Flatpak browser detected: Flatpak browsers cannot start the RepoMind engine (sandbox). Use a natively installed browser for local features."
+fi
 
 if [[ $BUILD -eq 1 ]]; then
   say "Building RepoMind (npm ci && npm run build)"
-  command -v npm >/dev/null || die "npm not found. Install it with: sudo pacman -S npm"
+  command -v npm >/dev/null || die "npm not found (needed only to build from source). Install it with: $(hint npm npm npm npm22) — or use the prebuilt release with --no-build."
   (cd "$ROOT" && npm ci --no-audit --no-fund && npm run build)
 fi
 [[ -f "$ROOT/packages/engine/dist/repomind-engine.cjs" ]] || die "Engine build missing. Run: npm ci && npm run build"

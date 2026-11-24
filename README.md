@@ -12,7 +12,7 @@ a plan → implement → verify discipline, patch safety checks, real build/test
 
 [![Release](https://img.shields.io/github/v/release/cyb3rl00m/repo-mind?label=release&color=5fd4c2)](https://github.com/cyb3rl00m/repo-mind/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Platform](https://img.shields.io/badge/platform-Linux%20%C2%B7%20CachyOS%20first-informational)
+![Platform](https://img.shields.io/badge/platform-Linux%20(Arch%20%C2%B7%20Debian%2FUbuntu%20%C2%B7%20Fedora%20%C2%B7%20openSUSE)-informational)
 ![Browser](https://img.shields.io/badge/browser-Chrome%20%7C%20Chromium%20%7C%20Brave%20%7C%20Vivaldi-informational)
 ![AI budget](https://img.shields.io/badge/AI%20API%20cost-%240-success)
 ![Telemetry](https://img.shields.io/badge/telemetry-none-success)
@@ -47,56 +47,128 @@ RepoMind **never calls an AI API**, never automates or scrapes the DeepSeek webs
 
 ## 📦 Installation
 
-RepoMind has two parts:
+RepoMind runs on **any modern Linux distribution** — Arch, CachyOS, Manjaro, EndeavourOS, Debian, Ubuntu, Linux Mint, Pop!_OS, Zorin, elementary, Fedora, Nobara, openSUSE and others. It has two parts:
 
-- **Chrome extension** — the user interface (a side panel).
+- **Chrome extension** — the user interface (a side panel). Works in Google Chrome, Chromium, Brave, Vivaldi and Microsoft Edge.
 - **Local engine** — a small Node.js program that the extension talks to through Chrome *Native Messaging*. It is needed for local folders, git checkpoints, applying patches, running builds and storing your GitHub token in the system keyring. GitHub import, prompts and GitHub Builder also work without it.
 
-### Option A — prebuilt release (recommended, no build tools needed)
+<!-- install:start -->
+### Requirements
+
+| | Needed | Why |
+|---|---|---|
+| **Node.js 20 or newer** | yes | runs the local engine (`node --version` must print `v20` or higher) |
+| **git** | yes | patches, checkpoints, worktrees |
+| **A natively installed Chromium-based browser** | yes | Chrome, Chromium, Brave, Vivaldi or Edge from a `.deb`/`.rpm`/AUR/distro package — **not Snap or Flatpak** (see below) |
+| `secret-tool` (libsecret) | optional | keeps your GitHub token in the system keyring |
+| `kdialog` or `zenity` | optional | native "pick a folder" dialog |
+| JDK + Android SDK | optional | only for running Android/Gradle builds from RepoMind |
+
+### Step 1 — install the dependencies for your distribution
+
+Pick your distribution, run its commands, then continue with step 2. Nothing in RepoMind itself needs `sudo`.
+
+<details open>
+<summary><b>Arch Linux · CachyOS · Manjaro · EndeavourOS · Garuda</b></summary>
 
 ```bash
-# 1. dependencies (CachyOS / Arch)
 sudo pacman -S --needed nodejs git
-sudo pacman -S --needed libsecret kdialog      # optional: keyring for tokens, native folder picker
-
-# 2. download and unpack (creates ~/repomind)
-curl -L -o /tmp/repomind.tar.gz https://github.com/cyb3rl00m/repo-mind/releases/latest/download/repomind-prebuilt.tar.gz
-tar -xzf /tmp/repomind.tar.gz -C ~
-
-# 3. install the engine for your user (never uses sudo) and self-test it
-cd ~/repomind
-./scripts/install.sh --no-build
-node scripts/selftest.mjs
+sudo pacman -S --needed libsecret kdialog      # optional (use zenity instead of kdialog on GNOME)
 ```
+</details>
 
-You can also download `repomind-prebuilt.tar.gz` manually from the [Releases page](https://github.com/cyb3rl00m/repo-mind/releases/latest).
-
-### Option B — from source
+<details>
+<summary><b>Ubuntu · Debian · Linux Mint · Pop!_OS · Zorin OS · elementary OS</b></summary>
 
 ```bash
-sudo pacman -S --needed nodejs npm git
-git clone https://github.com/cyb3rl00m/repo-mind.git ~/repomind
-cd ~/repomind
-./scripts/install.sh            # runs npm ci + npm run build, then installs
-node scripts/selftest.mjs
+sudo apt update
+sudo apt install -y nodejs git curl
+sudo apt install -y libsecret-tools zenity     # optional (kdialog instead of zenity on KDE)
+node --version
 ```
 
-### Load the extension in Chrome
+If `node --version` prints **v18 or lower** (Debian 12, Ubuntu 22.04/24.04, Mint 21/22 ship old versions), install a current Node.js from NodeSource and check again:
 
-1. Open `chrome://extensions` (or `brave://extensions`, `vivaldi://extensions`).
-2. Turn on **Developer mode** (top right).
-3. Click **Load unpacked** and select `~/repomind/packages/extension/dist`.
-4. Check that the ID is **`ddblnfbnekcpcpnnbeioffideiikfgmp`** — the engine only accepts this ID.
-5. Pin the RepoMind icon and click it. The side panel opens; the **Engine** pill in the top-right turns green.
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource_setup.sh
+sudo bash /tmp/nodesource_setup.sh
+sudo apt install -y nodejs
+node --version                                 # should now print v22.x
+```
 
-> **Keep the `~/repomind` folder.** Chrome loads the extension from it. The engine itself is copied to `~/.local/share/repomind/engine`.
+Ubuntu's default **Chromium is a Snap** and can't start the engine — install **Google Chrome** (`.deb` from google.com/chrome) or Brave/Vivaldi from their `.deb` repositories.
+</details>
 
-### What the installer does
+<details>
+<summary><b>Fedora · Nobara · Ultramarine</b></summary>
 
-- checks Node.js ≥ 20 and git, and tells you the `pacman` command for anything missing (it never runs `sudo`);
+```bash
+sudo dnf install -y nodejs git
+sudo dnf install -y libsecret zenity           # optional (kdialog instead of zenity on KDE spins)
+node --version                                 # Fedora 40+ ships Node 20 or newer
+```
+
+Fedora's `chromium` package from the official repositories works. Google Chrome: enable it under *Software → Third-party repositories* or install the `.rpm` from google.com/chrome.
+</details>
+
+<details>
+<summary><b>openSUSE Tumbleweed · Leap</b></summary>
+
+```bash
+sudo zypper install nodejs22 git               # Leap: nodejs20 also works
+sudo zypper install secret-tool zenity         # optional (kdialog instead of zenity on KDE)
+node --version
+```
+</details>
+
+<details>
+<summary><b>Other distributions (Void, Gentoo, NixOS, Alpine, Solus, …)</b></summary>
+
+Install **Node.js 20+** and **git** with your package manager, or Node.js from <https://nodejs.org/en/download> (prebuilt binaries or [nvm](https://github.com/nvm-sh/nvm) — the installer records the absolute path of the `node` you use). Optional: the package that provides the `secret-tool` command, and `kdialog` or `zenity`.
+
+The installer needs `bash`, `curl`/`tar` and a home directory that follows the usual layout (`~/.config`, `~/.local/share`). On NixOS, run it from a shell where `node` is on `PATH`.
+</details>
+
+### Step 2 — download and install RepoMind (same on every distribution)
+
+```bash
+curl -L -o /tmp/repomind.tar.gz https://github.com/cyb3rl00m/repo-mind/releases/latest/download/repomind-prebuilt.tar.gz
+tar -xzf /tmp/repomind.tar.gz -C ~             # creates ~/repomind
+cd ~/repomind
+./scripts/install.sh --no-build                # installs the engine for your user (never uses sudo)
+node scripts/selftest.mjs                      # optional: checks engine, git integration, Gradle detection
+```
+
+You can also download `repomind-prebuilt.tar.gz` from the [Releases page](https://github.com/cyb3rl00m/repo-mind/releases/latest) and extract it to your home folder with your file manager.
+
+The installer:
+
+- checks Node.js ≥ 20 and git and prints the right install command for **your** package manager (pacman, apt, dnf or zypper) if something is missing;
 - copies the engine to `~/.local/share/repomind/engine/` with a launcher that pins your Node path, and links `~/.local/bin/repomind-engine`;
-- registers the Native Messaging host for every Chromium-based browser it finds (Chrome, Chromium, Brave, Vivaldi, Edge — force one with `--browser chrome`);
+- registers the Native Messaging host for every Chromium-based browser profile it finds (Chrome, Chrome Beta/Dev, Chromium, Brave, Vivaldi, Edge). If the browser has never been started yet, start it once or force it with `./scripts/install.sh --no-build --browser chrome` (or `chromium`, `brave`, `vivaldi`, `edge`, `all`);
+- warns you if it sees a Snap or Flatpak browser;
 - runs `repomind-engine --doctor`.
+
+### Step 3 — load the extension
+
+1. Open `chrome://extensions` (Brave: `brave://extensions`, Vivaldi: `vivaldi://extensions`, Edge: `edge://extensions`).
+2. Turn on **Developer mode** (top right).
+3. Click **Load unpacked** and select the folder `~/repomind/packages/extension/dist`.
+4. Check that the ID is **`ddblnfbnekcpcpnnbeioffideiikfgmp`** — the engine only accepts this ID.
+5. Pin the RepoMind icon and click it. The side panel opens and the **Engine** pill in the top-right turns green.
+
+> **Keep the `~/repomind` folder.** The browser loads the extension from it. The engine itself is copied to `~/.local/share/repomind/engine`.
+
+### Browser compatibility
+
+| Browser | Works? |
+|---|---|
+| Google Chrome (`.deb` / `.rpm` / AUR `google-chrome`) | ✅ |
+| Chromium from Arch, Fedora, openSUSE, Debian (`apt install chromium`) | ✅ |
+| Brave, Vivaldi, Microsoft Edge (native packages) | ✅ |
+| **Snap** Chromium (Ubuntu's default `chromium`) | ⚠️ extension loads, but the sandbox blocks the local engine (no local folders, patching or builds) |
+| **Flatpak** Chrome / Chromium / Brave | ⚠️ same limitation as Snap |
+| Firefox | ❌ not supported (Chrome extension) |
 
 ### Updating
 
@@ -115,7 +187,20 @@ Then press the reload icon on RepoMind in `chrome://extensions`. Your projects, 
 ~/repomind/scripts/uninstall.sh --purge    # also config and logs
 ```
 
-Then remove the extension in `chrome://extensions`. Full details and troubleshooting: [INSTALLATION.md](INSTALLATION.md).
+Then remove the extension in `chrome://extensions`.
+<!-- install:end -->
+
+### Building from source instead
+
+Needs `npm` as well (`pacman -S npm` · `apt install npm` · `dnf install npm` · `zypper install npm22`; NodeSource's `nodejs` already contains npm).
+
+```bash
+git clone https://github.com/cyb3rl00m/repo-mind.git ~/repomind
+cd ~/repomind
+./scripts/install.sh            # runs npm ci + npm run build, then installs
+```
+
+Full details and troubleshooting: [INSTALLATION.md](INSTALLATION.md).
 
 ---
 
@@ -444,7 +529,7 @@ They are estimates (about 3.4 characters per token for code). DeepSeek's tokeniz
 <details>
 <summary><b>Windows or macOS?</b></summary>
 
-Not yet. The extension runs anywhere Chrome runs, but the engine and installer are Linux-only for now; the OS-specific parts are isolated so they can be added.
+Not yet. The extension runs anywhere Chrome runs, but the engine and installer are Linux-only for now (any distribution — see [Installation](#-installation)); the OS-specific parts are isolated so they can be added.
 </details>
 
 ---

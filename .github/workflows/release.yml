@@ -2,10 +2,12 @@ name: Release
 
 # Releases are cut automatically: when the version in package.json on main has no GitHub
 # release yet, this workflow tests, packages and publishes v<version> (creating the tag).
+# When the release already exists, only its notes are refreshed (CHANGELOG section +
+# the install tutorial between <!-- install:start --> and <!-- install:end --> in README.md).
 on:
   push:
     branches: [main]
-    paths: ['package.json']
+    paths: ['package.json', 'README.md', 'CHANGELOG.md', '.github/workflows/release.yml']
   workflow_dispatch:
 
 permissions:
@@ -40,26 +42,20 @@ jobs:
         if: steps.version.outputs.exists == 'false'
         run: ./scripts/package-release.sh
       - name: Release notes
-        if: steps.version.outputs.exists == 'false'
         run: |
           TAG="${{ steps.version.outputs.tag }}"; VERSION="${TAG#v}"
           {
             awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md
-            cat <<'NOTES'
-
-          ## Install (CachyOS / Arch)
-
-          ```bash
-          sudo pacman -S --needed nodejs git
-          curl -L -o /tmp/repomind.tar.gz https://github.com/cyb3rl00m/repo-mind/releases/latest/download/repomind-prebuilt.tar.gz
-          tar -xzf /tmp/repomind.tar.gz -C ~
-          cd ~/repomind && ./scripts/install.sh --no-build
-          ```
-
-          Then `chrome://extensions` → Developer mode → **Load unpacked** → `~/repomind/packages/extension/dist`.
-          Updating: replace `~/repomind`, run the installer again, reload the extension. See the README for setup.
-          NOTES
-          } | sed 's/^          //' > release-notes.md
+            echo
+            echo "## Installation"
+            echo
+            echo "Works on any modern Linux distribution: Arch, CachyOS, Manjaro, EndeavourOS, Debian, Ubuntu, Linux Mint, Pop!_OS, Fedora, openSUSE and others. Open the section for your distribution in step 1; steps 2 and 3 are the same everywhere."
+            echo
+            awk '/<!-- install:start -->/ {f=1; next} /<!-- install:end -->/ {f=0} f' README.md
+            echo
+            echo "Setup (GitHub token, Android SDK) and every feature are explained in the [README](https://github.com/cyb3rl00m/repo-mind#readme). Troubleshooting: [INSTALLATION.md](https://github.com/cyb3rl00m/repo-mind/blob/main/INSTALLATION.md)."
+          } > release-notes.md
+          grep -q 'install.sh --no-build' release-notes.md || { echo "install section missing from release notes"; exit 1; }
           cat release-notes.md
       - name: Publish release
         if: steps.version.outputs.exists == 'false'
@@ -70,3 +66,8 @@ jobs:
           gh release create "$TAG" \
             release/repomind-prebuilt.tar.gz release/repomind-prebuilt.tar.gz.sha256 \
             --target "$GITHUB_SHA" --title "RepoMind ${TAG#v}" --notes-file release-notes.md --latest
+      - name: Refresh notes of the existing release
+        if: steps.version.outputs.exists == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${{ steps.version.outputs.tag }}" --notes-file release-notes.md

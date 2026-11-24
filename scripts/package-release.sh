@@ -20,7 +20,9 @@ cp README.md INSTALLATION.md CHANGELOG.md LICENSE SECURITY.md PRIVACY.md package
 cat > "$STAGE/INSTALL-PREBUILT.txt" <<TXT
 RepoMind $VERSION — prebuilt (no npm build needed)
 
-  sudo pacman -S --needed nodejs git          # optional: libsecret kdialog
+  Needs Node.js 20+ and git (Arch: pacman -S nodejs git · Debian/Ubuntu: apt install nodejs git ·
+  Fedora: dnf install nodejs git · openSUSE: zypper install nodejs22 git). Full per-distro guide: README.md
+
   ./scripts/install.sh --no-build
   node scripts/selftest.mjs
 

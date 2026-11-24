@@ -22,7 +22,7 @@ Requirements: Node.js ≥ 20, git. The end-to-end test also needs Chrome or Chro
 | `npm run bench` | Offline retrieval/impact benchmark → `benchmarks/results/retrieval-latest.{md,json}` |
 | `npm run dev -w @repomind/extension` | Rebuild the extension on change (reload it in `chrome://extensions`) |
 
-Branded Google Chrome 137+ ignores `--load-extension`; use Chromium (`sudo pacman -S chromium`, `CHROME_PATH=/usr/bin/chromium`) or Chrome for Testing (`npx @puppeteer/browsers install chrome@stable`). `HEADFUL=1 npm run e2e` shows the browser; `KEEP=1` keeps the temp profile; `CHROME_PATH=…` selects the browser.
+Branded Google Chrome 137+ ignores `--load-extension`; use a natively packaged Chromium (`CHROME_PATH=/usr/bin/chromium`) or Chrome for Testing (`npx @puppeteer/browsers install chrome@stable`). `HEADFUL=1 npm run e2e` shows the browser; `KEEP=1` keeps the temp profile; `CHROME_PATH=…` selects the browser.
 
 ## Working on the engine without the installer
 
