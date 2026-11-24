@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Test
+        run: |
+          npm ci
+          npm run lint
+          npm run typecheck
+          npm test
+      - name: Build prebuilt archive
+        run: ./scripts/package-release.sh
+      - name: Release notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          {
+            awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md
+            cat <<'NOTES'
+
+          ## Install (CachyOS / Arch)
+
+          ```bash
+          sudo pacman -S --needed nodejs git
+          curl -L -o /tmp/repomind.tar.gz https://github.com/cyb3rl00m/repo-mind/releases/latest/download/repomind-prebuilt.tar.gz
+          tar -xzf /tmp/repomind.tar.gz -C ~
+          cd ~/repomind && ./scripts/install.sh --no-build
+          ```
+
+          Then `chrome://extensions` → Developer mode → **Load unpacked** → `~/repomind/packages/extension/dist`.
+          Updating: replace `~/repomind`, run the installer again, reload the extension. See the README for setup.
+          NOTES
+          } | sed 's/^          //' > release-notes.md
+          cat release-notes.md
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            release/repomind-prebuilt.tar.gz release/repomind-prebuilt.tar.gz.sha256 \
+            --title "RepoMind ${GITHUB_REF_NAME#v}" --notes-file release-notes.md --latest
