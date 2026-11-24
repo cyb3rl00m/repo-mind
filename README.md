@@ -233,7 +233,7 @@ Full details and troubleshooting: [INSTALLATION.md](INSTALLATION.md).
 ---
 
 ## ✅ Get it working
-
+<!-- getworking:start -->
 After installing, check these four things once. When all are green, RepoMind is ready.
 
 1. **Engine is connected.** Click the RepoMind icon. The **Engine** pill in the top-right of the side panel must be green.
@@ -242,12 +242,13 @@ After installing, check these four things once. When all are green, RepoMind is 
    - make sure the extension ID in `chrome://extensions` is `ddblnfbnekcpcpnnbeioffideiikfgmp`;
    - start the browser once, then run `~/repomind/scripts/install.sh --no-build --browser chrome` again (use `chromium`, `brave`, `vivaldi`, `edge` or `all` for other browsers);
    - fully close the browser (all windows) and open it again;
-   - Snap or Flatpak browser? Use a natively installed one (see [Browser compatibility](#browser-compatibility)).
+   - Snap or Flatpak browser? Use a natively installed one (see [Browser compatibility](https://github.com/cyb3rl00m/repo-mind#browser-compatibility)).
 2. **A project is loaded.** **Repositories** → paste a GitHub URL (public repositories need no token) or *Open a local folder*. The Dashboard shows the number of files and symbols.
 3. **DeepSeek is open.** Open <https://chat.deepseek.com/> in a normal tab and sign in. RepoMind never touches that tab; you copy and paste between the two.
 4. **Your first round trip works.** **Context Builder** → type a small task → **Find relevant code** → **Start workflow task** → **Generate & copy** → paste into DeepSeek → copy DeepSeek's answer → paste it back into RepoMind.
 
-For private repositories and for publishing to GitHub, add a token next ([Setup](#-setup)). Then follow one of the [Quick start](#-quick-start) recipes.
+For private repositories and for publishing to GitHub, add a token next ([Setup](https://github.com/cyb3rl00m/repo-mind#-setup)). Then follow one of the [Quick start](https://github.com/cyb3rl00m/repo-mind#-quick-start) recipes.
+<!-- getworking:end -->
 
 ---
 

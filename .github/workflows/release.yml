@@ -53,6 +53,9 @@ jobs:
             echo
             awk '/<!-- install:start -->/ {f=1; next} /<!-- install:end -->/ {f=0} f' README.md
             echo
+            echo "## Get it working"
+            awk '/<!-- getworking:start -->/ {f=1; next} /<!-- getworking:end -->/ {f=0} f' README.md
+            echo
             echo "Setup (GitHub token, Android SDK) and every feature are explained in the [README](https://github.com/cyb3rl00m/repo-mind#readme). Troubleshooting: [INSTALLATION.md](https://github.com/cyb3rl00m/repo-mind/blob/main/INSTALLATION.md)."
           } > release-notes.md
           grep -q 'install.sh --no-build' release-notes.md || { echo "install section missing from release notes"; exit 1; }
