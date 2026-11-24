@@ -1,6 +1,6 @@
 {
   "name": "@repomind/extension",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "RepoMind Chrome extension (Manifest V3 side panel).",
   "license": "MIT",
@@ -10,7 +10,7 @@
     "dev": "vite build --watch --mode development"
   },
   "dependencies": {
-    "@repomind/core": "0.2.2",
+    "@repomind/core": "0.2.3",
     "react": "19.2.9",
     "react-dom": "19.2.9"
   },

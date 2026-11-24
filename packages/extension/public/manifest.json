@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "RepoMind",
   "short_name": "RepoMind",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Local-first engineering intelligence for DeepSeek Web: repository indexing, context packages, impact analysis, patch review and local verification.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArRKIIPNjbLiTULg/VwwtKqQQP2h3YTSZM+7JZCHQmmgPwIr8k9D8u/wm+OT+IwPF3qBd0K6cmt5ya6dv2zCE5e5999ha5cFtMgF6Zww8RnqwJsMzfpTx9A0HLpQUF6v4Tbl+V2KXOCTE62o+XMYP+ql6kEwxjRvNsd90BXUClRlH/B11dxzSVXy1zI1XoA33PS0/s4qaxSFuh/Acg+P7UrQUu+1g4F8hmmXE3pz9SQgN0P0D+kX4XGkczUnrvF6bm/haZkILIYIn39lE26QV0ymptSVS9QQrDmg2CNBZzSiZ/4foR269wJ3MHaCi+MmA9xvSs0/+f29IKGz9JnOESQIDAQAB",
   "minimum_chrome_version": "116",

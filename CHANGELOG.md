@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.3] — 2026-11-24
+
+### Added
+- Installation tutorial for every Linux distribution in the README and on the release page: Arch / CachyOS / Manjaro / EndeavourOS, Debian / Ubuntu / Linux Mint / Pop!_OS (with a NodeSource fallback when the distro's Node.js is older than 20), Fedora, openSUSE and other distributions.
+- Browser compatibility table (native packages work; Snap and Flatpak browsers cannot start the local engine).
+
+### Changed
+- `install.sh` detects pacman, apt, dnf or zypper and prints the matching install command for missing dependencies, and warns about Snap/Flatpak browsers.
+- Engine doctor and keyring messages name the right package for each distribution.
+
 ## [0.2.2] — 2026-11-24
 
 First public release.

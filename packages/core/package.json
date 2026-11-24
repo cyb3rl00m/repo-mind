@@ -1,6 +1,6 @@
 {
   "name": "@repomind/core",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "RepoMind shared engine-agnostic intelligence: indexing, retrieval, impact analysis, diffs, prompts, memory.",
   "license": "MIT",
