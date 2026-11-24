@@ -4,6 +4,8 @@
 
 # RepoMind
 
+### Smarter DeepSeek
+
 **Turn the free DeepSeek web chat into a real software-engineering workflow.**
 
 RepoMind is a Chrome extension plus a small local companion that gives DeepSeek repository awareness,
@@ -17,7 +19,7 @@ a plan → implement → verify discipline, patch safety checks, real build/test
 ![AI budget](https://img.shields.io/badge/AI%20API%20cost-%240-success)
 ![Telemetry](https://img.shields.io/badge/telemetry-none-success)
 
-[Install](#-installation) · [Quick start](#-quick-start) · [Features](#-features) · [How it works](#-how-it-works) · [Safety](#-safety--privacy) · [FAQ](#-faq)
+[Smarter DeepSeek](#-smarter-deepseek) · [Install](#-installation) · [Get it working](#-get-it-working) · [Quick start](#-quick-start) · [Features](#-features) · [How it works](#-how-it-works) · [Safety](#-safety--privacy) · [FAQ](#-faq)
 
 <img src="docs/screenshots/hero.png" alt="RepoMind screens: Dashboard, Context Builder, GitHub Builder, Patch Review" />
 
@@ -25,9 +27,33 @@ a plan → implement → verify discipline, patch safety checks, real build/test
 
 ---
 
-## Why RepoMind?
+## ⚡ Smarter DeepSeek
 
-Free chat models are good at writing code, but working on a *real* repository through a chat window goes wrong in predictable ways:
+DeepSeek is a strong coding model, but in a plain chat window it only knows what you paste, it can't run anything, and it forgets everything between chats. RepoMind sits next to the chat and fixes exactly those gaps. The model stays the same — **what it sees and what happens to its answers gets much better.**
+
+```mermaid
+flowchart LR
+    R[(Your repository<br/>local or GitHub)] --> I[RepoMind indexes it<br/>files · symbols · dependency graph]
+    I --> P[RepoMind writes the prompt<br/>task + relevant code + impact + memory + rules]
+    P -->|you copy| D[DeepSeek web chat]
+    D -->|you paste the answer| C[RepoMind checks it<br/>Patch Review · GITHUB MODE parser]
+    C -->|you approve| A[Apply to folder<br/>or publish to GitHub]
+    A --> B[Build & Test<br/>real compiler output]
+    B -->|errors become the next prompt| P
+```
+
+### What DeepSeek gets from RepoMind
+
+1. **Repository awareness.** RepoMind indexes every file, class, function and import, then picks the files that matter for your task (and tells you why). DeepSeek gets the right code instead of whatever you remembered to paste — without blowing its context window.
+2. **Knowledge of side effects.** A dependency graph shows which files use the code being changed. A **Change Impact Report** in the prompt tells DeepSeek what else could break.
+3. **A senior-engineer process.** Instead of "write the code", DeepSeek is walked through *Understand → Plan → Implement → Review → Verify → Correct*. You approve the plan before any code is written.
+4. **Strict rules in every prompt.** Use only files and APIs that exist, say `MISSING CONTEXT` instead of guessing, don't rewrite the architecture, no `// ... rest of code` placeholders, never claim code compiles without proof.
+5. **A long-term memory.** Project Memory (goals, stack, decisions, known bugs) goes at the top of every prompt, so a new chat starts where the last one ended.
+6. **A safety net for its answers.** Patch Review catches deleted functions, changed signatures, broken imports and placeholders *before* anything touches your code. A git checkpoint is made first, so every change can be undone.
+7. **Real feedback.** Build & Test runs your real build and tests (after you confirm) and turns the actual errors into a **Correct** prompt. DeepSeek fixes real compiler errors, not imagined ones.
+8. **Hands for GitHub.** In **GITHUB MODE** DeepSeek writes complete files in a fixed format; RepoMind checks them and commits them to your repository in one click — batch after batch until the app is done.
+
+### Plain DeepSeek vs. DeepSeek + RepoMind
 
 | Problem when you chat with DeepSeek directly | What RepoMind does about it |
 |---|---|
@@ -42,6 +68,8 @@ Free chat models are good at writing code, but working on a *real* repository th
 RepoMind **never calls an AI API**, never automates or scrapes the DeepSeek website, and never sends anything anywhere without you clicking a button. You copy prompts into DeepSeek and paste answers back — RepoMind does the engineering around it.
 
 > RepoMind does not change DeepSeek's model. It improves what the model sees and checks what it produces. It does not promise results equal to any other model.
+>
+> RepoMind is an independent open-source project. It is not affiliated with, endorsed by or sponsored by DeepSeek. "DeepSeek" is used only to describe what RepoMind works with.
 
 ---
 
@@ -201,6 +229,25 @@ cd ~/repomind
 ```
 
 Full details and troubleshooting: [INSTALLATION.md](INSTALLATION.md).
+
+---
+
+## ✅ Get it working
+
+After installing, check these four things once. When all are green, RepoMind is ready.
+
+1. **Engine is connected.** Click the RepoMind icon. The **Engine** pill in the top-right of the side panel must be green.
+   If it is red:
+   - run `~/.local/bin/repomind-engine --doctor` in a terminal and fix what it reports;
+   - make sure the extension ID in `chrome://extensions` is `ddblnfbnekcpcpnnbeioffideiikfgmp`;
+   - start the browser once, then run `~/repomind/scripts/install.sh --no-build --browser chrome` again (use `chromium`, `brave`, `vivaldi`, `edge` or `all` for other browsers);
+   - fully close the browser (all windows) and open it again;
+   - Snap or Flatpak browser? Use a natively installed one (see [Browser compatibility](#browser-compatibility)).
+2. **A project is loaded.** **Repositories** → paste a GitHub URL (public repositories need no token) or *Open a local folder*. The Dashboard shows the number of files and symbols.
+3. **DeepSeek is open.** Open <https://chat.deepseek.com/> in a normal tab and sign in. RepoMind never touches that tab; you copy and paste between the two.
+4. **Your first round trip works.** **Context Builder** → type a small task → **Find relevant code** → **Start workflow task** → **Generate & copy** → paste into DeepSeek → copy DeepSeek's answer → paste it back into RepoMind.
+
+For private repositories and for publishing to GitHub, add a token next ([Setup](#-setup)). Then follow one of the [Quick start](#-quick-start) recipes.
 
 ---
 
