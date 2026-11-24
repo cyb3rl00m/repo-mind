@@ -148,7 +148,13 @@ const clickText = async (text, selector = 'button') => {
   await handle.asElement().click();
 };
 const waitText = (text, timeout = 30000) => page.waitForFunction((t) => document.body.innerText.includes(t), { timeout }, text);
-const shot = (name) => page.screenshot({ path: join(SHOTS, `${name}.png`), fullPage: true });
+const shot = async (name) => {
+  // Toasts are transient; hide them so screenshots show the screen itself.
+  // (CSS only — removing React-managed nodes would break the app.)
+  const style = await page.addStyleTag({ content: '.toasts { display: none !important; }' }).catch(() => null);
+  await page.screenshot({ path: join(SHOTS, `${name}.png`), fullPage: true });
+  await style?.evaluate((el) => el.remove()).catch(() => undefined);
+};
 const setInput = async (selector, value) => {
   await page.$eval(
     selector,
@@ -198,6 +204,9 @@ try {
     await page.waitForFunction(() => [...document.querySelectorAll('.badge')].some((b) => b.textContent === 'active'), { timeout: 60000 });
     await waitText('main @');
     await shot('02-repositories');
+    await page.click('button[aria-label="Dashboard"]');
+    await waitText('Build context');
+    await shot('02b-dashboard');
   });
 
   await step('explorer shows symbols and dependencies', async () => {

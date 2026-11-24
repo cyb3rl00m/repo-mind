@@ -17,7 +17,21 @@ Node.js 20 or newer is required. For Android builds you also need the Android SD
 
 **Keyring:** `secret-tool` talks to the Secret Service API. On KDE Plasma enable it in *System Settings → KDE Wallet* (or install `gnome-keyring`). Without a keyring RepoMind keeps a token only in browser session memory.
 
-## 2. Build and install the engine
+## 2. Get RepoMind
+
+**Prebuilt release (no npm needed):**
+
+```bash
+curl -L -o /tmp/repomind.tar.gz https://github.com/cyb3rl00m/repo-mind/releases/latest/download/repomind-prebuilt.tar.gz
+tar -xzf /tmp/repomind.tar.gz -C ~      # creates ~/repomind
+cd ~/repomind && ./scripts/install.sh --no-build
+```
+
+The archive contains the built extension, the built engine and the scripts. A `.sha256` checksum is attached to every release.
+
+**Or from source** (needs `npm`), as below.
+
+## 2b. Build and install the engine from source
 
 ```bash
 git clone https://github.com/cyb3rl00m/repo-mind.git

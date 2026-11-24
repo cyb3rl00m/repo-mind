@@ -11,3 +11,4 @@ benchmarks/results/*.local.json
 .env
 .env.*
 !.env.example
+release/

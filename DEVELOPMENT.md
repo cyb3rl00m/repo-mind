@@ -66,6 +66,7 @@ Engine logs: `~/.local/state/repomind/engine.log`. Override directories with `RE
 1. Update versions in the four `package.json` files and `packages/extension/public/manifest.json`.
 2. Update `CHANGELOG.md`.
 3. `npm run check && npm run e2e`.
-4. Tag `vX.Y.Z`. Bump `PROTOCOL_VERSION` only for breaking protocol changes.
+4. `./scripts/package-release.sh` → `release/repomind-prebuilt.tar.gz` (+ `.sha256`).
+5. Tag `vX.Y.Z`, create a GitHub release and attach both files (the README's download link points at `releases/latest/download/repomind-prebuilt.tar.gz`). Bump `PROTOCOL_VERSION` only for breaking protocol changes.
 
 The extension ID is fixed by the public key in `manifest.json`. The matching private key was not kept; a Chrome Web Store release would get a store-assigned ID that must be added to the host manifest's `allowed_origins` (and `engine.json` `allowedOrigins`).
